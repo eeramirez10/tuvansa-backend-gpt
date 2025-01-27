@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon",
+    "dev": "NODE_ENV=development nodemon",
     "build": "rm -rf ./dist && tsc",
-    "start": "npm run build && node dist/app.js"
+    "start": "NODE_ENV=production npm run build && node dist/app.js"
   },
   "keywords": [],
   "author": "",
@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "typescript": "^5.7.3"
   },
   "eslintConfig": {
     "extends": "standard"
