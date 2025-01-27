@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_ENV=development nodemon",
-    "build": "rm -rf ./dist && tsc",
+    "build": "npx rimraf ./dist && tsc",
     "start": "NODE_ENV=production npm run build && node dist/app.js"
   },
   "keywords": [],
@@ -16,15 +16,14 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.10",
     "nodemon": "^3.1.9",
-    "rimraf": "^6.0.1",
     "standard": "^17.1.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.3"
+    "ts-node": "^10.9.2"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "rimraf": "^6.0.1"
   },
   "eslintConfig": {
     "extends": "standard"
