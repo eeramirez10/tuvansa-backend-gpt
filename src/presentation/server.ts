@@ -3,7 +3,7 @@ import express, { Router } from 'express'
 import cors from 'cors'
 
 interface Option {
-  port: number
+  port: any
   routes: Router
 }
 
@@ -11,7 +11,7 @@ export class Server {
 
   private app = express()
 
-  private readonly port: number
+  private readonly port: any
   private routes: Router
 
   constructor(options:Option) {

@@ -6,7 +6,7 @@ import { Server } from "./presentation/server"
 
 async function main() {
 
-  const server = new Server({port:3000, routes:AppRoutes.routes() })
+  const server = new Server({ port: process.env.PORT || '4000', routes: AppRoutes.routes() })
 
   server.start()
 
