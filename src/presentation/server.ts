@@ -21,6 +21,8 @@ export class Server {
 
   async start() {
 
+    console.log(this.port)
+
     //Middelwares 
     this.app.use(express.urlencoded({ extended: true}))
     this.app.use(express.json())
