@@ -19,6 +19,8 @@ export class Server {
     this.routes = options.routes
   }
 
+  
+
   async start() {
 
     console.log(this.port)
