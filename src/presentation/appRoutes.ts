@@ -7,7 +7,7 @@ export class AppRoutes {
     const router = Router()
 
     router.get('/', (req, res) => {
-      res.json({ msg: 'true'})
+      res.json({ msg: 'hola mundo'})
     })
 
     return router
