@@ -126,7 +126,7 @@ export class GptDataSourceImpl implements GptDataSource {
   // Función auxiliar para limpiar la respuesta en caso de que el modelo incluya delimitadores
   private cleanSqlResponse(response: string): string {
     // Eliminar los delimitadores de bloques de código ```sql y ```
-    response = response.replace(/```sql\s*/i, '').replace(/```\s*$/i, '').trim();
+    response = response.replace(/```sql\s*/i, '').replace(/```\s*$/i, '').replace(/```json|```/g, '').trim();
     return response;
   }
 

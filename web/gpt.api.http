@@ -1,5 +1,5 @@
 ### Post
-POST http://localhost:3500/api/gpt/user-prompt-to-sql
+POST http://tuvansa-gpt-71d64b682e77.herokuapp.com/api/gpt/user-prompt-to-sql
 Content-Type: application/json
 
 {
