@@ -43,8 +43,8 @@ export class GptDataSourceImpl implements GptDataSource {
         },
       ],
       model: 'gpt-4',
-      max_tokens: 2000,
-      temperature: 0.3,
+      max_tokens: 10000,
+      temperature: 0.1,
     });
 
     let response = completion.choices[0].message.content as string;
