@@ -42,7 +42,7 @@ export class GptDataSourceImpl implements GptDataSource {
           `,
         },
       ],
-      model: 'gpt-4',
+      model: 'gpt-4o',
       max_tokens: 2000,
       temperature: 0.1,
     });
@@ -107,7 +107,7 @@ export class GptDataSourceImpl implements GptDataSource {
           content: prompt,
         },
       ],
-      model: 'gpt-4', // Asegúrate de que el nombre del modelo es correcto
+      model: 'gpt-4o', // Asegúrate de que el nombre del modelo es correcto
       max_tokens: 1000,
       temperature: 0.1,
     });
