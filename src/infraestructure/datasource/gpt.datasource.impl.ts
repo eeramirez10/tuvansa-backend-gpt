@@ -8,6 +8,14 @@ import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql
 import { GenerateSummaryDto } from "../../domain/dtos/generate-summary.dto";
 import { SummaryEntity } from "../../domain/entities/summary.entity";
 
+
+
+interface processPromptForSQLResponse {
+  query: string,
+  error: string
+  originalPrompt: string 
+}
+
 export class GptDataSourceImpl implements GptDataSource {
   constructor(private readonly openai: OpenAI) { }
   async generateSummary(generateSummaryDto: GenerateSummaryDto): Promise<SummaryEntity> {
@@ -63,12 +71,35 @@ export class GptDataSourceImpl implements GptDataSource {
         {
           role: 'system',
           content: `
-            Eres un asistente experto en SQL. A continuación, te proporcionaré algunos esquemas de bases de datos escritos en SQL. 
-            Tu tarea es generar únicamente la consulta SQL solicitada por el usuario sin incluir ningún formato adicional, como bloques de código o descripciones.
-            
-            schemas: 
-            
-            ${schema}
+                  Dado los siguientes esquemas escritos en sql que te voy a pasar como ejemplo, 
+          quiero que hagas la consulta en base a lo que te pida el usuario y quiero que me des 
+          de la siguiete manera: 
+
+          no me lo pongas de esta manera:
+
+          
+
+
+          {
+            "query": "El query que vas a generar",
+            "error": null,
+            "originalPrompt": "Lo que te escribio el usuario"
+          }
+
+          schemas: 
+
+          ${schema}
+          
+
+          si hay un error retornalo de esta forma
+
+          ejemplo
+
+          {
+            "query": null,
+            error:" el error"
+            "originalPrompt": "Lo que te escribio el usuario"
+          }
           `,
         },
         {
@@ -81,13 +112,13 @@ export class GptDataSourceImpl implements GptDataSource {
       temperature: 0.1,
     });
 
-    let response = completion.choices[0].message.content as string;
+    let response = completion.choices[0].message.content 
 
     // Opcional: Limpiar cualquier delimitador de código que pueda haberse incluido
-    response = this.cleanSqlResponse(response);
+    response = this.cleanSqlResponse(response)
 
-
-    return new GptEntity({ prompt, sql: response });
+    const responsetoJson = JSON.parse(response)
+    return new GptEntity({ prompt, sql: responsetoJson['query'] });
   }
 
 

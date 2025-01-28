@@ -114,7 +114,7 @@ const options: swaggerJsdoc.Options = {
             },
           },
           example: {
-            prompt: "Dame las ventas del día de hoy.",
+            prompt: "Cual es mi mejor cleinte del 2024",
           },
         },
         ErrorResponse: {
