@@ -1,2 +1,9 @@
-### Get
-http://localhost:4000/
+### Post
+POST http://localhost:3500/api/gpt/user-prompt-to-sql
+Content-Type: application/json
+
+{
+  "prompt":"Cual es mi mejor cleinte del 2024"
+}
+
+

@@ -1,6 +1,7 @@
 
 import express, { Router } from 'express'
 import cors from 'cors'
+import { setupSwagger } from '../docs/swagger'
 
 interface Option {
   port: any
@@ -23,7 +24,7 @@ export class Server {
 
   async start() {
 
-    console.log(this.port)
+
 
     //Middelwares 
     this.app.use(express.urlencoded({ extended: true}))
@@ -34,9 +35,12 @@ export class Server {
     // Routes 
     this.app.use(this.routes)
 
+    setupSwagger(this.app)
+
 
     this.app.listen(this.port, () => {
       console.log(`Server on port ${this.port}`)
+      console.log(`Documentación de Swagger disponible en http://localhost:${this.port}/api-docs`);
     })
   }
 

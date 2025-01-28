@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import { GptRoutes } from "./gpt/routes";
 
 export class AppRoutes {
 
@@ -6,9 +7,7 @@ export class AppRoutes {
 
     const router = Router()
 
-    router.get('/', (req, res) => {
-      res.json({ msg: 'hola mundo'})
-    })
+    router.use('/api/gpt', GptRoutes.routes())
 
     return router
   }
