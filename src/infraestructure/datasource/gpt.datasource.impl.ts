@@ -43,7 +43,7 @@ export class GptDataSourceImpl implements GptDataSource {
         },
       ],
       model: 'gpt-4',
-      max_tokens: 10000,
+      max_tokens: 8192,
       temperature: 0.1,
     });
 
