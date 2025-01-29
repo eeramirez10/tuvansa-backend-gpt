@@ -46,7 +46,7 @@ export const schema = `
   22. Cuando exista un aunion entre las tablas no uses JOIN usa LEFT JOIN
   24. En las ventas o compras por familia la union con la tabla de famias es LEFT JOIN FFAM AS FAMB ON FAMB.FAMTNUM=FINV.IFAMB, y para poner los campor debes de usar el FAMB como nombre de la tabla
   25. cuando te soliciten compras muestra la clave y la descripcion 
-  26. Cuando te soliciten compras o ventas el valor de los importes no deben incluir esta instruccion ITIPO<>4 
+  26. Cuando te soliciten compras o ventas debe incluir esta instruccion ITIPO<>4 para los importes correctos
   27. Siempre que te pidan las ventas por familia muestra los nombres y ordena de mayor a menos las ventas. e incluye la tabla de INVENTARIOS en la consulta
   28. DFECHA es el campo donde se almacena la fecha de cada venta o de las compras.
   29. No utilices el AS para poner el mismo nombre de la tabla
