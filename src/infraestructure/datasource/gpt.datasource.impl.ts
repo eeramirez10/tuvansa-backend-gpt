@@ -117,7 +117,11 @@ export class GptDataSourceImpl implements GptDataSource {
     // Opcional: Limpiar cualquier delimitador de código que pueda haberse incluido
     response = this.cleanSqlResponse(response)
 
+    
+
     const responsetoJson = JSON.parse(response)
+
+    console.log(responsetoJson['query'])
     return new GptEntity({ prompt, sql: responsetoJson['query'] });
   }
 
