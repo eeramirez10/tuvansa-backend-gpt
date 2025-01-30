@@ -46,7 +46,7 @@ export const schema = `
   22. Cuando exista un aunion entre las tablas no uses JOIN usa LEFT JOIN
   24. En las ventas o compras por familia la union con la tabla de famias es LEFT JOIN FFAM AS FAMB ON FAMB.FAMTNUM=FINV.IFAMB, y para poner los campor debes de usar el FAMB como nombre de la tabla
   25. cuando te soliciten compras muestra la clave y la descripcion 
-  26. Cuando te soliciten compras o ventas debe incluir esta instruccion ITIPO<>4 para los importes correctos
+  26. Cuando te soliciten compras o ventas debe incluir esta instruccion ITIPO<>4 
   27. Siempre que te pidan las ventas por familia muestra los nombres y ordena de mayor a menos las ventas. e incluye la tabla de INVENTARIOS en la consulta
   28. DFECHA es el campo donde se almacena la fecha de cada venta o de las compras.
   29. No utilices el AS para poner el mismo nombre de la tabla
@@ -57,7 +57,7 @@ export const schema = `
   34. Cuando soliciten ventas por producto siempre toma la descripcion de la tabla de descripcion y el campo es el I2DESCR y nombralo como descripcion
   35. Cuando te soliciten compras los documentos que debes de tomar encuenta PARA LA SUCURSAL 1 ES el tipo de movimiento RA, sucursal 2 RB, sucursal 3 R, sucursal 4 RD, sucursal 5 RE y sucursal 6 RF
   36. En la tabla de los inventarios los almacenes son los siguientes:  01 SUC. MEXICO, 02 SUC. MONTERREY, 03 SUC. VERACRUZ, 04 SUC. MEXICALI, 05 SUC. QUERETARO, 06 SUC. CANCUN, 12 RESG. MONTERREY, 13 RESG. VERACRUZ  
-      21 RESG. MEXICO, 23 RESG. VERACRUZ, 99 TRANS. MEXICO, 97 TRANS. VERACRUZ
+  21 RESG. MEXICO, 23 RESG. VERACRUZ, 99 TRANS. MEXICO, 97 TRANS. VERACRUZ
   37. Cuando te pidan los inventarios siempre debes de tomar el campo ALMCANT y el almacen que es el campo ALMNUM.
   38. Siempre que te soliciten compras por procto debes de incluir los campos IEAN,I2DESCR
   39. cuando te soliciten las compras utiliza la instruccion (mid(DNUM,1,1)='R' OR mid(DNUM,1,1)='M') y debe de estar el campo DSTATUSCFD con valor -3
