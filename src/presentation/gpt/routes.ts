@@ -19,7 +19,7 @@ export class GptRoutes {
 
   static routes = (): Router => {
     const router = Router()
-    const openai = new OpenAI({ apiKey: envs.OPEN_API_KEY })
+    const openai = new OpenAI({ apiKey: envs.DEEP_SEEK_API_KEY, baseURL: envs.DEEP_SEEK_BASE_URL  })
     const dataSource = new GptDataSourceImpl(openai)
     const sqlDataSource = new ProscaiDatasourceImpl({
       host: envs.URL_MYSQL,

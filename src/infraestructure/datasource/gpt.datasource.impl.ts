@@ -13,7 +13,7 @@ import { SummaryEntity } from "../../domain/entities/summary.entity";
 interface processPromptForSQLResponse {
   query: string,
   error: string
-  originalPrompt: string 
+  originalPrompt: string
 }
 
 export class GptDataSourceImpl implements GptDataSource {
@@ -42,9 +42,9 @@ export class GptDataSourceImpl implements GptDataSource {
           `,
         },
       ],
-      model: 'gpt-4o',
+      model: 'deepseek-reasoner',
       max_tokens: 2000,
-      temperature: 0.1,
+      temperature: 0.0,
     });
 
     let response = completion.choices[0].message.content as string;
@@ -107,17 +107,17 @@ export class GptDataSourceImpl implements GptDataSource {
           content: prompt,
         },
       ],
-      model: 'gpt-4o', // Asegúrate de que el nombre del modelo es correcto
-      max_tokens: 1000,
-      temperature: 0.1,
+      model: 'deepseek-reasoner',
+      max_tokens: 2000,
+      temperature: 1.0,
     });
 
-    let response = completion.choices[0].message.content 
+    let response = completion.choices[0].message.content
 
     // Opcional: Limpiar cualquier delimitador de código que pueda haberse incluido
     response = this.cleanSqlResponse(response)
 
-    
+
 
     const responsetoJson = JSON.parse(response)
 
