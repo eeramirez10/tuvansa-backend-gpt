@@ -1,16 +1,17 @@
 import { Router } from "express";
-import { GptDataSource } from "../../domain/datasource/gpt.datasource";
-import { GptDataSourceImpl } from '../../infraestructure/datasource/gpt.datasource.impl';
-import OpenAI from "openai";
 import { GptController } from "./controller";
-import { GptRepositoryImpl } from "../../infraestructure/repositories/gpt.repository.impl";
 import { envs } from "../../config/envs";
 import { ProcessPromptForSqlUseCase } from "../../application/use-cases/process-prompt-for-sql.use-case";
 import { ExecuteSqlUseCase } from '../../application/use-cases/execute-sql.use-case';
 import { ProscaiDatasourceImpl } from "../../infraestructure/datasource/proscai.datasource.impl";
-import { SqlRepository } from "../../domain/repositories/sql.repository";
+
 import { ProscaiRepositoryImpl } from "../../infraestructure/repositories/proscai.repository.impl";
 import { GenerateSummaryUseCase } from '../../application/use-cases/generate-summary.use-case';
+import { OpenAiServiceImpl } from "../../infraestructure/services/open-ai.service.impl";
+import { ProcessUserPromptUseCase } from '../../application/use-cases/process-user-prompt.use-case';
+import { upload } from "../../config/multer-config";
+import { ProcessFileAndExtractQuotationUseCase } from '../../application/use-cases/process-file-and-extract-quotation.use-case';
+import { ProcessFileUseCase } from "../../application/use-cases/process-file.use-case";
 
 
 export class GptRoutes {
@@ -19,24 +20,28 @@ export class GptRoutes {
 
   static routes = (): Router => {
     const router = Router()
-    const openai = new OpenAI({ apiKey: envs.DEEP_SEEK_API_KEY, baseURL: envs.DEEP_SEEK_BASE_URL  })
-    const dataSource = new GptDataSourceImpl(openai)
+
     const sqlDataSource = new ProscaiDatasourceImpl({
       host: envs.URL_MYSQL,
       user: envs.USER_MYSQL,
       password: envs.PASSWORD_MYSQL,
       database: envs.DB_MYSQL
     })
+
     const sqlRepository = new ProscaiRepositoryImpl(sqlDataSource)
-    const repository = new GptRepositoryImpl(dataSource)
-    const processPromptForSqlUseCase = new ProcessPromptForSqlUseCase(repository)
-    const executeSqlUseCase = new  ExecuteSqlUseCase(sqlRepository)
-    const generateSummaryUseCase = new GenerateSummaryUseCase(repository)
+    const openAiService = new OpenAiServiceImpl()
+    const processPromptForSqlUseCase = new ProcessPromptForSqlUseCase(openAiService)
+    const executeSqlUseCase = new ExecuteSqlUseCase(sqlRepository)
+    const generateSummaryUseCase = new GenerateSummaryUseCase(openAiService)
+    const processFileUseCase = new ProcessFileUseCase()
 
-
-    const { userPromptToSql } = new GptController(processPromptForSqlUseCase, executeSqlUseCase, generateSummaryUseCase )
+    const processUserPromptUseCase = new ProcessUserPromptUseCase(processPromptForSqlUseCase, executeSqlUseCase, generateSummaryUseCase)
+    const processFileAndExtractQuotationUseCase = new ProcessFileAndExtractQuotationUseCase(processFileUseCase, openAiService)
+    const { userPromptToSql, processQuotation } = new GptController(processUserPromptUseCase, processFileAndExtractQuotationUseCase)
     // @ts-ignore
     router.post('/user-prompt-to-sql', userPromptToSql)
+
+    router.post('/process-quotation', upload.single('quotation'), processQuotation)
 
     return router
   }

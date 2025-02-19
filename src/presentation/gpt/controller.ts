@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
-import { GptRepository } from "../../domain/repositories/gpt.repository";
 import { ProcessPromptForSqlDto } from '../../domain/dtos/process-prompt-for-sql.dto';
-import { ExecuteSqlUseCase } from '../../application/use-cases/execute-sql.use-case';
-import { GenerateSummaryUseCase } from "../../application/use-cases/generate-summary.use-case";
-import { ProcessPromptForSqlUseCase } from '../../application/use-cases/process-prompt-for-sql.use-case';
+
+import { ProcessUserPromptUseCase } from "../../application/use-cases/process-user-prompt.use-case";
+import { error } from "console";
+import { ProcessFileUseCase } from '../../application/use-cases/process-file.use-case';
+import { ProcessFileAndExtractQuotationUseCase } from "../../application/use-cases/process-file-and-extract-quotation.use-case";
 
 
 /**
@@ -17,48 +18,47 @@ import { ProcessPromptForSqlUseCase } from '../../application/use-cases/process-
 export class GptController {
 
   constructor(
-    private readonly processPromptForSqlUseCase: ProcessPromptForSqlUseCase,
-    private readonly executeSqlUseCase: ExecuteSqlUseCase,
-    private readonly generateSummaryUseCase: GenerateSummaryUseCase,
 
+    private readonly processUserPromptUseCase: ProcessUserPromptUseCase,
+    private readonly processFileAndExtractQuotationUseCase: ProcessFileAndExtractQuotationUseCase
 
 
   ) { }
 
-    /**
-   * @swagger
   /**
-   * @swagger
-   * /gpt/user-prompt-to-sql:
-   *   post:
-   *     summary: Genera y ejecuta una consulta SQL basada en un prompt del usuario, y devuelve un resumen.
-   *     tags: [GPT]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/UserPrompt'
-   *     responses:
-   *       200:
-   *         description: Respuesta exitosa con la consulta SQL generada, el resumen y el total de ventas.
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/SuccessResponse'
-   *       400:
-   *         description: Solicitud inválida.
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ErrorResponse'
-   *       500:
-   *         description: Error interno del servidor.
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ErrorResponse'
-   */
+ * @swagger
+/**
+ * @swagger
+ * /gpt/user-prompt-to-sql:
+ *   post:
+ *     summary: Genera y ejecuta una consulta SQL basada en un prompt del usuario, y devuelve un resumen.
+ *     tags: [GPT]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UserPrompt'
+ *     responses:
+ *       200:
+ *         description: Respuesta exitosa con la consulta SQL generada, el resumen y el total de ventas.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessResponse'
+ *       400:
+ *         description: Solicitud inválida.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error interno del servidor.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 
   public userPromptToSql = async (req: Request, res: Response) => {
 
@@ -68,20 +68,12 @@ export class GptController {
 
       if (error) return res.status(400).json({ error })
 
-      const gptEntity = await this.processPromptForSqlUseCase.execute(processPromptForSqlDto)
-
-  
-
-      const executeSqlDto = { sql: gptEntity.sql };
-
-      const sqlResult = await this.executeSqlUseCase.execute(executeSqlDto)
-
-      const summaryEntity = await this.generateSummaryUseCase.execute({ prompt: processPromptForSqlDto.prompt, sqlResult })
+      const { sql, summary } = await this.processUserPromptUseCase.execute(processPromptForSqlDto)
 
 
       res.json({
-        sql: gptEntity.sql,
-        summary: summaryEntity.message,
+        sql,
+        summary
       });
 
     } catch (error) {
@@ -94,4 +86,39 @@ export class GptController {
 
 
   }
+
+  public processQuotation = async (req: Request, res: Response) => {
+
+    try {
+
+      const file = req.file;
+
+      if (!file) {
+        res.status(400).json({ error: 'File is required' })
+        return
+      }
+
+
+      const quotation = await this.processFileAndExtractQuotationUseCase.execute(file)
+
+      res.json({
+        success: true,
+        quotation
+      })
+
+
+    } catch (error) {
+      console.error('[FileController]', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Error interno del servidor',
+      });
+    }
+
+  }
+
+
+
+
+
 }

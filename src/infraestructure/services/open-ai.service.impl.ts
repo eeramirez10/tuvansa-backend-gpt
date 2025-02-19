@@ -1,23 +1,79 @@
-// GptDataSourceImpl.ts
-
 import OpenAI from "openai";
-import { GptDataSource } from "../../domain/datasource/gpt.datasource";
-import { GptEntity } from "../../domain/entities/gpt.entity";
-import { schema } from "../../data/schema";
-import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql.dto";
 import { GenerateSummaryDto } from "../../domain/dtos/generate-summary.dto";
+import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql.dto";
+import { GptEntity } from "../../domain/entities/gpt.entity";
+import { QuotationEntity } from "../../domain/entities/quotation.entity";
 import { SummaryEntity } from "../../domain/entities/summary.entity";
+import { LanguageModelService } from "../../domain/services/language-model-service";
+import { openAiConfig } from "../../config/open-ai-config";
+import { schema } from "../../data/schema";
 
 
+export class OpenAiServiceImpl implements LanguageModelService {
 
-interface processPromptForSQLResponse {
-  query: string,
-  error: string
-  originalPrompt: string
-}
+  private readonly openai = new OpenAI(openAiConfig)
 
-export class GptDataSourceImpl implements GptDataSource {
-  constructor(private readonly openai: OpenAI) { }
+  constructor(){
+ 
+  }
+
+
+  async extractQuotationData(textContent: string): Promise<QuotationEntity> {
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Eres un asistente que organiza solicitudes de cotización de materiales en un formato uniforme.',
+        },
+        // {
+        //   role: 'user',
+        //   content: `Extrae y organiza la información clave de esta cotización:\n${textContent}`,
+        // },
+        // {
+        //   role: 'system',
+        //   content: `Eres un asistente que organiza solicitudes de cotización de materiales en un formato uniforme.`,
+        // },
+        {
+          role: 'user',
+          content: `
+          Extrae y organiza la información clave de esta cotización solo dame la informacion de los productos, quiero que me lo regreses asi:
+          {
+            description: la descripcion del producto o la informacion del producto concatenando otras columnas si viene info de relacionada a la descripcion,
+            cantidad: la cantidad de piezas o metros del producto que pide el cliente,
+            unidad: la unidad de medida del producto (pza, m, cm, pieza, metro, tramo, etc...),
+
+          }
+           y regresamela en json el puro json sin explicaciones ni nada con los valores de cada uno:\n${textContent}
+        
+          `,
+          //   content: `
+          //   Analiza la informacion de la cotizacion:\n${textContent}
+
+          //   ahora de la informacion que analizaste busca los productos en esta otra lista ${products} y solo dame los que encontraste
+          //   `,
+        },
+      ],
+      temperature: 0.2,
+      max_tokens: 10000,
+    });
+
+    console.log(response.choices[0].message.content);
+
+    let extractedInfo = response.choices[0].message.content;
+
+    if (
+      extractedInfo.startsWith('```json\n') &&
+      extractedInfo.endsWith('\n```')
+    ) {
+      extractedInfo = extractedInfo
+        .replace(/```json\n/, '') // Elimina el inicio ```json
+        .replace(/\n```$/, ''); // Elimina el final ```
+    }
+
+    return JSON.parse(extractedInfo);
+  }
   async generateSummary(generateSummaryDto: GenerateSummaryDto): Promise<SummaryEntity> {
     const { prompt, sqlResult } = generateSummaryDto
     const formattedResult = JSON.stringify(sqlResult, null, 2);
@@ -42,7 +98,7 @@ export class GptDataSourceImpl implements GptDataSource {
           `,
         },
       ],
-      model: 'deepseek-reasoner',
+      model: 'gpt-4o-mini',
       max_tokens: 2000,
       temperature: 0.0,
     });
@@ -74,11 +130,7 @@ export class GptDataSourceImpl implements GptDataSource {
                   Dado los siguientes esquemas escritos en sql que te voy a pasar como ejemplo, 
           quiero que hagas la consulta en base a lo que te pida el usuario y quiero que me des 
           de la siguiete manera: 
-
           no me lo pongas de esta manera:
-
-          
-
 
           {
             "query": "El query que vas a generar",
@@ -107,7 +159,7 @@ export class GptDataSourceImpl implements GptDataSource {
           content: prompt,
         },
       ],
-      model: 'deepseek-reasoner',
+      model: 'gpt-4o-mini',
       max_tokens: 2000,
       temperature: 1.0,
     });
@@ -134,7 +186,6 @@ export class GptDataSourceImpl implements GptDataSource {
     return response;
   }
 
-  public getClient() {
-    return this.openai
-  }
+
+  
 }

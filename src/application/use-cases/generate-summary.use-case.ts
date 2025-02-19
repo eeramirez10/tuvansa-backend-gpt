@@ -1,7 +1,6 @@
-import { GptDataSource } from '../../domain/datasource/gpt.datasource';
+
 import { GenerateSummaryDto } from '../../domain/dtos/generate-summary.dto';
-import { SummaryEntity } from '../../domain/entities/summary.entity';
-import { GptRepository } from '../../domain/repositories/gpt.repository';
+import { LanguageModelService } from '../../domain/services/language-model-service';
 
 interface Options {
   prompt: string
@@ -11,10 +10,10 @@ interface Options {
 
 export class GenerateSummaryUseCase {
 
-  constructor(private readonly gptRepository: GptRepository) {}
+  constructor(private readonly openAIService: LanguageModelService) {}
 
   async execute(generateSummaryDto: GenerateSummaryDto){
-    return this.gptRepository.generateSummary(generateSummaryDto)
+    return this.openAIService.generateSummary(generateSummaryDto)
   }
     
 
