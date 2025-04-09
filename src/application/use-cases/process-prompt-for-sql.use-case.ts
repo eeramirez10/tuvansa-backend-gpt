@@ -10,8 +10,8 @@ export class ProcessPromptForSqlUseCase {
   constructor(private readonly openAIService: LanguageModelService){}
 
 
-  async execute(processPromptForSql: ProcessPromptForSqlDto) {
-    return this.openAIService.processPromptForSQL(processPromptForSql)
+  async execute(processPromptForSql: ProcessPromptForSqlDto, dbSchema: string) {
+    return this.openAIService.processPromptForSQL(processPromptForSql, dbSchema)
   }
 
 }

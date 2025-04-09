@@ -119,7 +119,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
     return response;
   }
 
-  async processPromptForSQL(processPromptForSql: ProcessPromptForSqlDto): Promise<GptEntity> {
+  async processPromptForSQL(processPromptForSql: ProcessPromptForSqlDto, dbSchema: string): Promise<GptEntity> {
     const { prompt } = processPromptForSql;
 
     const completion = await this.openai.chat.completions.create({
@@ -133,7 +133,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
   
           schemas: 
 
-          ${schema}
+          ${dbSchema}
           
 
           `,

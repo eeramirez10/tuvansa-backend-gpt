@@ -1,3 +1,4 @@
+import { schema } from "../../data/schema";
 import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql.dto";
 import { ExecuteSqlUseCase } from "./execute-sql.use-case";
 import { GenerateSummaryUseCase } from "./generate-summary.use-case";
@@ -14,7 +15,7 @@ export class ProcessUserPromptUseCase {
 
   async execute(dto: ProcessPromptForSqlDto) {
 
-    const gptEntity = await this.processPromptForSqlUseCase.execute(dto);
+    const gptEntity = await this.processPromptForSqlUseCase.execute(dto, schema );
 
     const executeSqlDto = { sql: gptEntity.sql };
     const sqlResult = await this.executeSqlUseCase.execute(executeSqlDto);

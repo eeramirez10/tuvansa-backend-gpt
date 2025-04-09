@@ -18,4 +18,14 @@ Content-Type: application/json
 
 
 
+### Post Base de datos de Compras
+POST http://localhost:3500/api/gpt/purchase-analisys
+Content-Type: application/json
+
+{
+  "prompt":"las mejor venta del 2024"
+}
+
+
+
 

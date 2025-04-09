@@ -7,7 +7,7 @@ import { SummaryEntity } from "../entities/summary.entity";
 
 export abstract class LanguageModelService {
 
-    abstract processPromptForSQL(process: ProcessPromptForSqlDto): Promise<GptEntity>
+    abstract processPromptForSQL(process: ProcessPromptForSqlDto, dbSchema: string): Promise<GptEntity>
   
     abstract generateSummary(generateSummaryDto: GenerateSummaryDto): Promise<SummaryEntity>
   

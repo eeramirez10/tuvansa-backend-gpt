@@ -12,6 +12,7 @@ import { ProcessUserPromptUseCase } from '../../application/use-cases/process-us
 import { upload } from "../../config/multer-config";
 import { ProcessFileAndExtractQuotationUseCase } from '../../application/use-cases/process-file-and-extract-quotation.use-case';
 import { ProcessFileUseCase } from "../../application/use-cases/process-file.use-case";
+import { ProcessUserPromptPurchaseUseCase } from '../../application/use-cases/process-user-prompt-purchase.use-case';
 
 
 export class GptRoutes {
@@ -37,9 +38,13 @@ export class GptRoutes {
 
     const processUserPromptUseCase = new ProcessUserPromptUseCase(processPromptForSqlUseCase, executeSqlUseCase, generateSummaryUseCase)
     const processFileAndExtractQuotationUseCase = new ProcessFileAndExtractQuotationUseCase(processFileUseCase, openAiService)
-    const { userPromptToSql, processQuotation } = new GptController(processUserPromptUseCase, processFileAndExtractQuotationUseCase)
+    const processUserPromptPurchaseUseCase = new ProcessUserPromptPurchaseUseCase(processPromptForSqlUseCase, executeSqlUseCase, generateSummaryUseCase)
+
+    const { userPromptToSql, processQuotation, purchaseAnalisys } = new GptController(processUserPromptUseCase, processFileAndExtractQuotationUseCase, processUserPromptPurchaseUseCase)
     // @ts-ignore
     router.post('/user-prompt-to-sql', userPromptToSql)
+
+    router.post('/purchase-analisys', purchaseAnalisys)
 
     router.post('/process-quotation', upload.single('quotation'), processQuotation)
 

@@ -5,6 +5,7 @@ import { ProcessUserPromptUseCase } from "../../application/use-cases/process-us
 import { error } from "console";
 import { ProcessFileUseCase } from '../../application/use-cases/process-file.use-case';
 import { ProcessFileAndExtractQuotationUseCase } from "../../application/use-cases/process-file-and-extract-quotation.use-case";
+import { ProcessUserPromptPurchaseUseCase } from '../../application/use-cases/process-user-prompt-purchase.use-case';
 
 
 /**
@@ -20,8 +21,8 @@ export class GptController {
   constructor(
 
     private readonly processUserPromptUseCase: ProcessUserPromptUseCase,
-    private readonly processFileAndExtractQuotationUseCase: ProcessFileAndExtractQuotationUseCase
-
+    private readonly processFileAndExtractQuotationUseCase: ProcessFileAndExtractQuotationUseCase,
+    private readonly processUserPromptPurchaseUseCase: ProcessUserPromptPurchaseUseCase
 
   ) { }
 
@@ -86,6 +87,39 @@ export class GptController {
 
 
   }
+
+  purchaseAnalisys = async (req: Request, res: Response) => {
+
+    try {
+
+      const [error, processPromptForSqlDto] = ProcessPromptForSqlDto.execute(req.body)
+
+      if (error) {
+        res.status(400).json({ error })
+        return
+      }
+
+      const { sql, summary } = await this.processUserPromptPurchaseUseCase.execute(processPromptForSqlDto)
+
+
+      res.json({
+        sql,
+        summary
+      });
+
+    } catch (error) {
+      console.error('Error en GptController:', error);
+      res.status(500).json({ error: 'Error interno del servidor.' });
+    }
+
+
+
+
+
+  }
+
+
+
 
   public processQuotation = async (req: Request, res: Response) => {
 
