@@ -13,7 +13,7 @@ POST http://localhost:3500/api/gpt/user-prompt-to-sql
 Content-Type: application/json
 
 {
-  "prompt":"Muestra las ventas totales de los 10 mejores clientes del año 2024"
+  "prompt":"las mejor venta del 2024"
 }
 
 

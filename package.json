@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "NODE_ENV=development nodemon",
-    "build": "rimraf ./dist && tsc",
+    "build": "rm -rf ./dist && tsc",
     "start": "NODE_ENV=production  node dist/app.js"
   },
   "keywords": [],

@@ -13,14 +13,14 @@ export class OpenAiServiceImpl implements LanguageModelService {
 
   private readonly openai = new OpenAI(openAiConfig)
 
-  constructor(){
- 
+  constructor() {
+
   }
 
 
   async extractQuotationData(textContent: string): Promise<QuotationEntity> {
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'chatgpt-4o-latest',
       messages: [
         {
           role: 'system',
@@ -98,7 +98,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
           `,
         },
       ],
-      model: 'gpt-4o-mini',
+      model: 'chatgpt-4o-latest',
       max_tokens: 2000,
       temperature: 0.0,
     });
@@ -106,7 +106,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
     let response = completion.choices[0].message.content as string;
 
     // Limpiar la respuesta para eliminar posibles delimitadores de código
-    response = this.cleanSummaryResponse(response);
+    // response = this.cleanSummaryResponse(response);
 
 
     return new SummaryEntity({ message: response });
@@ -129,29 +129,13 @@ export class OpenAiServiceImpl implements LanguageModelService {
           content: `
                   Dado los siguientes esquemas escritos en sql que te voy a pasar como ejemplo, 
           quiero que hagas la consulta en base a lo que te pida el usuario y quiero que me des 
-          de la siguiete manera: 
-          no me lo pongas de esta manera:
-
-          {
-            "query": "El query que vas a generar",
-            "error": null,
-            "originalPrompt": "Lo que te escribio el usuario"
-          }
-
+          solo el sql como string sin las comillas ni la palabra sql  y no me des explicaciones
+  
           schemas: 
 
           ${schema}
           
 
-          si hay un error retornalo de esta forma
-
-          ejemplo
-
-          {
-            "query": null,
-            error:" el error"
-            "originalPrompt": "Lo que te escribio el usuario"
-          }
           `,
         },
         {
@@ -159,22 +143,23 @@ export class OpenAiServiceImpl implements LanguageModelService {
           content: prompt,
         },
       ],
-      model: 'gpt-4o-mini',
+      model: 'chatgpt-4o-latest',
       max_tokens: 2000,
       temperature: 1.0,
     });
 
     let response = completion.choices[0].message.content
 
+    // console.log({ response })
+
     // Opcional: Limpiar cualquier delimitador de código que pueda haberse incluido
-    response = this.cleanSqlResponse(response)
+    // response = this.cleanSqlResponse(response)
 
 
 
-    const responsetoJson = JSON.parse(response)
+    // const responsetoJson = JSON.parse(response)
 
-    console.log(responsetoJson['query'])
-    return new GptEntity({ prompt, sql: responsetoJson['query'] });
+    return new GptEntity({ prompt, sql: response });
   }
 
 
@@ -187,5 +172,5 @@ export class OpenAiServiceImpl implements LanguageModelService {
   }
 
 
-  
+
 }
