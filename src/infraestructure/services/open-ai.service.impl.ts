@@ -99,8 +99,8 @@ export class OpenAiServiceImpl implements LanguageModelService {
         },
       ],
       model: 'chatgpt-4o-latest',
-      max_tokens: 2000,
-      temperature: 0.0,
+      max_tokens: 10000,
+      temperature: 0.3,
     });
 
     let response = completion.choices[0].message.content as string;
@@ -144,8 +144,8 @@ export class OpenAiServiceImpl implements LanguageModelService {
         },
       ],
       model: 'chatgpt-4o-latest',
-      max_tokens: 2000,
-      temperature: 1.0,
+      max_tokens: 10000,
+      temperature: 0.2,
     });
 
     let response = completion.choices[0].message.content
