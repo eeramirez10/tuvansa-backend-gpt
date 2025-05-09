@@ -100,10 +100,10 @@ export class GptController {
       }
 
       const { sql, summary } = await this.processUserPromptPurchaseUseCase.execute(processPromptForSqlDto)
-
+      console.log (`${sql}`)
 
       res.json({
-        sql,
+        sql:`${sql}`,
         summary
       });
 
