@@ -23,7 +23,7 @@ POST http://localhost:3500/api/gpt/purchase-analisys
 Content-Type: application/json
 
 {
-  "prompt":"las mejor venta del 2024"
+  "prompt":"dame los productyos de lento movinmiento de mexico"
 }
 
 

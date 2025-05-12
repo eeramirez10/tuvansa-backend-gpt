@@ -21,14 +21,14 @@ export class ProcessUserPromptPurchaseUseCase {
         const sqlResult = await this.executeSqlUseCase.execute(executeSqlDto);
     
     
-        const summaryEntity = await this.generateSummaryUseCase.execute({
-          prompt: dto.prompt,
-          sqlResult,
-        });
+        // const summaryEntity = await this.generateSummaryUseCase.execute({
+        //   prompt: dto.prompt,
+        //   sqlResult,
+        // });
     
         return {
           sql: gptEntity.sql,
-          summary: summaryEntity.message,
+          summary: sqlResult,
         };
     
     
