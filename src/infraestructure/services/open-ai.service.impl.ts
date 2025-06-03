@@ -143,9 +143,9 @@ export class OpenAiServiceImpl implements LanguageModelService {
           content: prompt,
         },
       ],
-      model: 'chatgpt-4o-latest',
+      model: 'gpt-4.1',
       max_tokens: 10000,
-      temperature: 0.2,
+      temperature: 0.1,
     });
 
     let response = completion.choices[0].message.content
