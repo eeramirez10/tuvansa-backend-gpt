@@ -10,4 +10,6 @@ export const envs = {
   PORT: get('PORT').required().asString(),
   DEEP_SEEK_API_KEY: get('DEEP_SEEK_API_KEY').asString(),
   DEEP_SEEK_BASE_URL: get('DEEP_SEEK_BASE_URL').asString(),
+  REDIS_USER : get('REDIS_USER').required().asString(),
+  REDIS_PASSWORD : get('REDIS_PASSWORD').required().asString()
 }

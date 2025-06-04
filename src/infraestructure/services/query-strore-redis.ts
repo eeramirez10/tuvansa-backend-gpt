@@ -1,11 +1,12 @@
 import { randomUUID } from 'crypto';
 import Redis from 'ioredis';
 import { QueryStoreService } from '../../domain/services/query-store-service';
+import { envs } from '../../config/envs';
 
 
 export class QueryStoreRedis implements QueryStoreService {
 
-  readonly redis = new Redis('redis://default:Ti31rh13W8LczC0dF30chcgKhnAZ8YyY@redis-15258.c98.us-east-1-4.ec2.redns.redis-cloud.com:15258')
+  readonly redis = new Redis(`redis://${envs.REDIS_USER}:${envs.REDIS_PASSWORD}@redis-15258.c98.us-east-1-4.ec2.redns.redis-cloud.com:15258`)
   constructor(private readonly defaultTTL = 15 * 60) { } // TTL en segundos
 
 
