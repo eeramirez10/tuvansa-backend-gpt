@@ -17,7 +17,7 @@ export class ProscaiDatasourceImpl implements SqlDataSource {
   }
 
   async executeSql(executeSqlDto: ExecuteSqlDto): Promise<PaginationResult<any>> {
-    const { sql, page = 1, pageSize = 10 } = executeSqlDto
+    const { sql, page = 1, pageSize = 50 } = executeSqlDto
 
     const offset = (page - 1) * pageSize;
     const paginatedSql = `${sql} LIMIT ${pageSize} OFFSET ${offset}`;

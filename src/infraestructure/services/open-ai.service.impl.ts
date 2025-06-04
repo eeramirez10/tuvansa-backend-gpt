@@ -149,7 +149,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
           content: prompt,
         },
       ],
-      model: 'gpt-4.1',
+      model: 'chatgpt-4o-latest',
       max_tokens: 10000,
       temperature: 0.1,
     });
