@@ -127,13 +127,19 @@ export class OpenAiServiceImpl implements LanguageModelService {
         {
           role: 'system',
           content: `
-                  Dado los siguientes esquemas escritos en sql que te voy a pasar como ejemplo, 
-          quiero que hagas la consulta en base a lo que te pida el usuario y quiero que me des 
-          solo el sql como string sin las comillas ni la palabra sql  y no me des explicaciones
-  
+          Dado los siguientes esquemas escritos en SQL que te voy a pasar como ejemplo, 
+          genera una consulta SQL basada en lo que el usuario pida.
+
+          ⚠️ No incluyas las palabras LIMIT ni OFFSET en el SQL.
+
+          Devuélveme solo el código SQL (sin comillas, sin bloques de código, sin explicaciones).
+
           schemas: 
 
           ${dbSchema}
+
+
+          
           
 
           `,

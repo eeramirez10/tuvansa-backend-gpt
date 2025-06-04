@@ -1,12 +1,12 @@
 import { Request, Response } from "express";
 import { ProcessPromptForSqlDto } from '../../domain/dtos/process-prompt-for-sql.dto';
-
-import { ProcessUserPromptUseCase } from "../../application/use-cases/process-user-prompt.use-case";
-import { error } from "console";
-import { ProcessFileUseCase } from '../../application/use-cases/process-file.use-case';
-import { ProcessFileAndExtractQuotationUseCase } from "../../application/use-cases/process-file-and-extract-quotation.use-case";
-import { ProcessUserPromptPurchaseUseCase } from '../../application/use-cases/process-user-prompt-purchase.use-case';
-
+import { LanguageModelService } from '../../domain/services/language-model-service';
+import { ProcessPromptForSqlUseCase } from "../../application/use-cases/process-prompt-for-sql.use-case";
+import { purchaseSchema } from "../../data/purchase-schema";
+import { SqlDataSource } from '../../domain/datasource/sql.datasource';
+import { QueryStoreService } from '../../domain/services/query-store-service';
+import { PaginationDto } from "../../domain/dtos/pagination.dto";
+import { sanitizeSQL } from "../../infraestructure/helpers/sanitizeSql";
 
 /**
  * @swagger
@@ -20,92 +20,50 @@ export class GptController {
 
   constructor(
 
-    private readonly processUserPromptUseCase: ProcessUserPromptUseCase,
-    private readonly processFileAndExtractQuotationUseCase: ProcessFileAndExtractQuotationUseCase,
-    private readonly processUserPromptPurchaseUseCase: ProcessUserPromptPurchaseUseCase
-
+    private readonly languageModelService: LanguageModelService,
+    private readonly sqlDataSource: SqlDataSource,
+    private readonly queryStoreService: QueryStoreService
   ) { }
 
-  /**
- * @swagger
-/**
- * @swagger
- * /gpt/user-prompt-to-sql:
- *   post:
- *     summary: Genera y ejecuta una consulta SQL basada en un prompt del usuario, y devuelve un resumen.
- *     tags: [GPT]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UserPrompt'
- *     responses:
- *       200:
- *         description: Respuesta exitosa con la consulta SQL generada, el resumen y el total de ventas.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/SuccessResponse'
- *       400:
- *         description: Solicitud inválida.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *       500:
- *         description: Error interno del servidor.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- */
 
-  public userPromptToSql = async (req: Request, res: Response) => {
-
-    try {
-
-      const [error, processPromptForSqlDto] = ProcessPromptForSqlDto.execute(req.body)
-
-      if (error) return res.status(400).json({ error })
-
-      const { sql, summary } = await this.processUserPromptUseCase.execute(processPromptForSqlDto)
-
-
-      res.json({
-        sql,
-        summary
-      });
-
-    } catch (error) {
-      console.error('Error en GptController:', error);
-      res.status(500).json({ error: 'Error interno del servidor.' });
-    }
-
-
-
-
-
-  }
 
   purchaseAnalisys = async (req: Request, res: Response) => {
 
+
     try {
 
       const [error, processPromptForSqlDto] = ProcessPromptForSqlDto.execute(req.body)
+
+      const { sql } = await new ProcessPromptForSqlUseCase(this.languageModelService)
+        .execute(processPromptForSqlDto, purchaseSchema)
+
+      const baseSql = sanitizeSQL(sql)
+
+      const queryId = await this.queryStoreService.create(baseSql)
+
+
+
+      // const [total] = await new ExecuteSqlUseCase(this.sqlDataSource).execute({ sql: countSql })
+      const { items, page, pageSize } = await this.sqlDataSource
+        .executeSql({ sql: baseSql })
+
+
+      res.json({
+        queryId,
+        items,
+        page,
+        pageSize,
+        // total,
+        // totalPages: paginationResult.totalPages
+
+      })
 
       if (error) {
         res.status(400).json({ error })
         return
       }
 
-      const { sql, summary } = await this.processUserPromptPurchaseUseCase.execute(processPromptForSqlDto)
-      console.log (`${sql}`)
 
-      res.json({
-        sql:`${sql}`,
-        summary
-      });
 
     } catch (error) {
       console.error('Error en GptController:', error);
@@ -119,37 +77,61 @@ export class GptController {
   }
 
 
+  getStoredQuery = async (req: Request, res: Response) => {
+    const page = parseInt(req.query.page as string) || 1;
+    const pageSize = parseInt(req.query.pageSize as string) || 10;
+    const queryId = req.query.queryId;
 
+    const [error, paginationDto] = PaginationDto.execute({ page, pageSize, queryId })
 
-  public processQuotation = async (req: Request, res: Response) => {
+    if (error) {
+      res.status(400).json({ error })
+      return
+    }
 
     try {
 
-      const file = req.file;
+      const savedSql = await this.queryStoreService.get(paginationDto.queryId)
 
-      if (!file) {
-        res.status(400).json({ error: 'File is required' })
+      if (!savedSql) {
+
+        res.status(400).json({
+          error: 'query not found'
+        })
         return
       }
 
+      const { items, page, pageSize } = await this.sqlDataSource
+        .executeSql({
+          sql: savedSql,
+          page: paginationDto.page,
+          pageSize: paginationDto.pageSize
+        })
 
-      const quotation = await this.processFileAndExtractQuotationUseCase.execute(file)
+
 
       res.json({
-        success: true,
-        quotation
+        queryId,
+        items,
+        page,
+        pageSize,
+        // total,
+        // totalPages: paginationResult.totalPages
+
       })
-
-
     } catch (error) {
-      console.error('[FileController]', error);
-      res.status(500).json({
-        success: false,
-        error: error.message || 'Error interno del servidor',
-      });
+      console.error('Error al recuperar SQL paginado:', error);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
 
+
+
+
+
+
   }
+
+
 
 
 
