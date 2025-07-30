@@ -17,6 +17,8 @@ export class ProcessFileAndExtractQuotationUseCase {
     const texContent = await this.processFileUseCase.execute(file)
     const quotation = await this.languageModelService.extractQuotationData(texContent)
 
+  
+
     return quotation
   }
 }

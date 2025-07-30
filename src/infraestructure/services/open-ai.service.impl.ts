@@ -4,7 +4,7 @@ import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql
 import { GptEntity } from "../../domain/entities/gpt.entity";
 import { QuotationEntity } from "../../domain/entities/quotation.entity";
 import { SummaryEntity } from "../../domain/entities/summary.entity";
-import { LanguageModelService } from "../../domain/services/language-model-service";
+import { LanguageModelService, ValvulaProperties } from "../../domain/services/language-model-service";
 import { openAiConfig } from "../../config/open-ai-config";
 import { schema } from "../../data/schema";
 
@@ -17,8 +17,13 @@ export class OpenAiServiceImpl implements LanguageModelService {
 
   }
 
+  embed(text: string): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
 
-  async extractQuotationData(textContent: string): Promise<QuotationEntity> {
+
+
+  async extractQuotationData(textContent: string): Promise<QuotationEntity[]> {
     const response = await this.openai.chat.completions.create({
       model: 'chatgpt-4o-latest',
       messages: [
@@ -177,6 +182,292 @@ export class OpenAiServiceImpl implements LanguageModelService {
     return response;
   }
 
+
+  async detectCosturaType(descripcion: string): Promise<"SIN COSTURA" | "CON COSTURA" | null> {
+
+    console.log({ descripcion })
+    const prompt = `
+      Dada la siguiente descripción de un producto industrial, indica únicamente si el producto es SIN COSTURA o CON COSTURA.
+      Considera todas las variantes y abreviaciones para ambos casos, por ejemplo:
+      - Sin costura: "sin costura", "s/c", "sc", "t.s.c.", "tsc", "s.c.", etc.
+      - Con costura: "con costura", "cc", "c/c", "tubo con costura", "t.c.c.", "tcc", "c.c.", "tubo tcc", etc.
+      - null: si no encuentras las anteriores
+
+      No expliques nada. Solo responde exactamente: "SIN COSTURA", "CON COSTURA" o "null" si no se puede determinar.
+
+      Descripción: """${descripcion}"""
+    `;
+
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4.1-mini',
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 10,
+      temperature: 0.0,
+    });
+
+    const result = (response.choices[0].message.content ?? "").toUpperCase().replace(/["\n\r]/g, "").trim();
+
+    console.log({ result })
+
+    if (result.includes("SIN COSTURA")) return "SIN COSTURA";
+    if (result.includes("CON COSTURA")) return "CON COSTURA";
+    return null;
+  }
+
+  async extractPipeProperties(descripcion: string) {
+    const prompt = `
+    Eres un asistente experto en productos industriales. Analiza la siguiente descripción y extrae:
+      
+    - tipoCostura: Si la descripción menciona SIN COSTURA, SC, S.C., S/C, S.C, indica "SIN COSTURA".  
+      Si menciona CON COSTURA, CC, C.C., C/C, C.C, indica "CON COSTURA".  
+      Si no encuentras ninguna variante, pon null.
+    - diametro: Extrae el diámetro nominal en pulgadas, por ejemplo 2", 2 1/2", 3/4", 4", etc.  
+      Si viene como 2-1/2", conviértelo a "2 1/2". Si no encuentras diámetro, pon null.
+    - cedula: Extrae la cédula (puede aparecer como CED, SCH, STD, 10, 40, 80, XXS, etc). Si no se encuentra, pon null.
+      
+    Pon la información en mayúsculas y como objeto JSON con estas llaves:  
+    { tipoCostura: string|null, diametro: string|null, cedula: string|null }
+      
+    Descripción: """${descripcion}"""
+`;
+
+    const resp = await this.openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "Eres un asistente que ayuda a extraer información estructurada de descripciones de productos industriales.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.1,
+    });
+
+    let content = resp.choices[0].message.content as string;
+    if (content.startsWith('```json')) {
+      content = content.replace(/```json\n?/, '').replace(/\n?```$/, '');
+    }
+
+    const result = JSON.parse(content);
+
+    // Normalización adicional: quitar guion y poner espacio en diámetros
+    if (result.diametro && result.diametro.includes('-')) {
+      result.diametro = result.diametro.replace(/-/g, ' ').replace(/\s+/, ' ').toUpperCase();
+    }
+    // Siempre poner símbolo de pulgadas al final si no lo tiene
+    if (result.diametro && !result.diametro.includes('"')) {
+      result.diametro = result.diametro.trim() + '"';
+    }
+
+    return result;
+  }
+
+  async extractCodoProperties(descripcion: string) {
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un asistente experto en productos industriales que extrae datos clave de descripciones para integración en un sistema de inventarios.',
+        },
+        {
+          role: 'user',
+          content: `
+         Extrae los siguientes campos clave de la descripción de un codo industrial. Devuelve todos los datos en MAYÚSCULAS, sin acentos, y si no se encuentra un valor, pon null.
+
+        - producto: Si la descripción indica que es un codo, pon "CODO"; si no, pon null.
+        - diametro: Diámetro nominal principal en pulgadas, sin el símbolo ", por ejemplo: 2 1/2, 3, 4, etc. Si viene en otro formato, conviértelo a ese (por ejemplo, 2-1/2" debe ser 2 1/2).
+        - cedula: Valor numérico de la cédula o "STD" para cédula estándar, si no se encuentra, pon null.
+        - angulo: Valor del ángulo en grados, como 45 o 90. Si no se encuentra, pon null.
+        - radio: Si la descripción indica "radio largo", "RL" o similar, pon "LARGO". Si dice "radio corto", "RC" o similar, pon "CORTO". Si no se encuentra, pon null.
+        - material: Material principal, por ejemplo "ACERO AL CARBON", "INOXIDABLE", etc. Si no se encuentra, pon null.
+        - galvanizado: Si hay alguna variante de galvanizado, pon "G"; si no, pon null.
+        - roscado: Si hay alguna variante de roscado, pon "R"; si no, pon null.
+        - liso: Si hay alguna variante de liso, pon "L"; si no, pon null.
+        - negro: Si hay alguna variante de negro, pon "N"; si no, pon null.
+        - figura: Si hay una figura o código, pon el valor como está; si no, pon null.
+        - presion: Valor numérico de la presión, por ejemplo 6000; si no se encuentra, pon null.
+        - sw: Si aparece "SW", "SOCKET WELD" o similares, pon "SW"; si no, pon null.
+        - biselado: Si aparece "BISELADO" o similar, pon "BISELADO"; si no, pon null.
+        - plano: Si aparece "PLANO", pon "PLANO"; si no, pon null.
+        - ranurado: Si aparece "RANURADO" o variantes, pon "RANURADO"; si no, pon null.
+        - bridado: Si aparece "BRIDADO", pon "BRIDADO"; si no, pon null.
+        - no_asignado: Si aparece "NO ASIGNADO", pon "NO ASIGNADO"; si no, pon null.
+        - descripcion_limpia: Un resumen limpio y técnico de la descripción usando los datos extraídos, útil para búsqueda.
+                
+        Descripción: ${descripcion}
+                
+        Dame la información en un objeto JSON con los siguientes nombres exactos de propiedad:
+                
+        {
+          producto: ...,
+          diametro: ...,
+          cedula: ...,
+          angulo: ...,
+          radio: ...,
+          material: ...,
+          galvanizado: ...,
+          roscado: ...,
+          liso: ...,
+          negro: ...,
+          figura: ...,
+          presion: ...,
+          sw: ...,
+          biselado: ...,
+          plano: ...,
+          ranurado: ...,
+          bridado: ...,
+          no_asignado: ...,
+          descripcion_limpia: ...
+        }
+          `,
+        },
+      ],
+      temperature: 0,
+    });
+
+    let data = response.choices[0]?.message?.content || '';
+
+    // Limpieza del formato de código
+    if (data.startsWith('```json')) {
+      data = data.replace(/^```json/, '').replace(/```$/, '').trim();
+    }
+    if (data.startsWith('```')) {
+      data = data.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    try {
+      return JSON.parse(data);
+    } catch (err) {
+      console.error('Error al parsear respuesta de OpenAI:', data);
+      return null;
+    }
+  }
+
+  async detectarTipoProducto(
+    descripcion: string
+  ): Promise<"TUBO" | "CODO" | "VALVULA" | null> {
+    const prompt = `
+    Analiza la siguiente descripción de producto y responde únicamente con el tipo de producto principal.
+    Las únicas opciones posibles son:
+    - TUBO (incluye términos como tubería, tubo, pipe, piping, etc.)
+    - CODO (incluye términos como codo, elbow, etc.)
+    - VALVULA (incluye términos como válvula, valvula, valve, etc.)
+    Si no encuentras ninguna, responde SOLO con null.
+    No des ninguna explicación adicional, solo la palabra exacta (TUBO, CODO, VALVULA o null), en mayúsculas y sin acentos.
+    Descripción: "${descripcion}"
+  `;
+
+    const resp = await this.openai.chat.completions.create({
+      model: 'chatgpt-4o-latest',
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un asistente para clasificar productos industriales como TUBO, CODO o VALVULA.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        }
+      ],
+      temperature: 0,
+      max_tokens: 10,
+    });
+
+    let tipo = resp.choices[0].message.content?.trim().toUpperCase() || '';
+    if (["TUBO", "CODO", "VALVULA"].includes(tipo)) return tipo as "TUBO" | "CODO" | "VALVULA";
+    return null;
+  }
+
+  async extractValvulaProperties(
+    descripcion: string,
+  ): Promise<ValvulaProperties> {
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'Eres un asistente experto en productos industriales que extrae datos clave de descripciones de válvulas para integración en un sistema de inventarios.',
+        },
+        {
+          role: 'user',
+          content: `
+            Extrae los siguientes campos clave de la descripción de una válvula industrial. Devuelve todos los datos en MAYÚSCULAS, sin acentos. Si no se encuentra un valor, pon null.
+                    
+            - producto: Si la descripción indica que es una válvula, pon "VALVULA"; si no, pon null.
+            - subtipo: El subtipo o clase principal de la válvula, por ejemplo: BOLA, GLOBO, MARIPOSA, AGUJA, CHECK, ALIVIO, PRESION, etc. Si no se encuentra, pon null.
+            - diametro: Diámetro nominal principal en pulgadas, sin el símbolo ", por ejemplo: 2 1/2, 3, 4, etc. Si viene en otro formato como 2-1/2", conviértelo a ese formato (2 1/2).
+            - figura: Si la descripción contiene una figura, código tipo FIGURA, FIG., F o F. seguido de letras/números, pon el valor tal cual; si no, pon null.
+                    
+            Descripción: ${descripcion}
+                    
+            Dame la información en un objeto JSON con los siguientes nombres exactos de propiedad:
+                    
+            {
+              producto: ...,
+              subtipo: ...,
+              diametro: ...,
+              figura: ...
+            }
+                    `
+        }
+      ],
+      temperature: 0,
+    });
+
+    let data = response.choices[0]?.message?.content || '';
+
+    // Limpieza del formato de código
+    if (data.startsWith('```json')) {
+      data = data.replace(/^```json/, '').replace(/```$/, '').trim();
+    }
+    if (data.startsWith('```')) {
+      data = data.replace(/^```/, '').replace(/```$/, '').trim();
+    }
+
+    try {
+      return JSON.parse(data) as ValvulaProperties;
+    } catch (err) {
+      console.error('Error al parsear respuesta de OpenAI:', data);
+      return null;
+    }
+  }
+
+
+  // async detectarTipoProducto(  descripcion: string): Promise<"TUBO" | "CODO" | null> {
+  //   const prompt = `
+  //   Analiza la siguiente descripción de producto y responde únicamente con el tipo de producto principal. 
+  //   Las únicas opciones posibles son:
+  //   - TUBO (incluye términos como tubería, tubo, etc.)
+  //   - CODO (incluye términos como codo, elbow, etc.)
+  //   Si no encuentras ninguna, responde SOLO con null.
+  //   No des ninguna explicación adicional, solo la palabra exacta (TUBO, CODO o null), en mayúsculas y sin acentos.
+  //   Descripción: "${descripcion}"
+  // `;
+
+  //   const resp = await this.openai.chat.completions.create({
+  //     model: 'chatgpt-4o-latest',
+  //     messages: [
+  //       {
+  //         role: 'system',
+  //         content: 'Eres un asistente para clasificar productos industriales solo como TUBO o CODO.',
+  //       },
+  //       {
+  //         role: 'user',
+  //         content: prompt,
+  //       }
+  //     ],
+  //     temperature: 0,
+  //     max_tokens: 10,
+  //   });
+
+  //   let tipo = resp.choices[0].message.content?.trim().toUpperCase() || '';
+  //   if (tipo === 'TUBO' || tipo === 'CODO') return tipo as "TUBO" | "CODO";
+  //   return null;
+  // }
 
 
 }

@@ -26,6 +26,14 @@ Content-Type: application/json
   "prompt":"dame los productyos de lento movinmiento de mexico"
 }
 
+### Inert products 
+GET http://localhost:4500/api/gpt/upsert-products
 
 
+### Inert products 
+POST http://localhost:4500/api/gpt/match-product
+Content-Type: application/json
 
+{
+  "description":"TUBO CON COSTURA GALVANIZADO ROSCADO C/COPLE DE 88.9 X 5.5 MM. ( 3\" CED. 40 )"
+}

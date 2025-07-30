@@ -6,7 +6,23 @@ import { purchaseSchema } from "../../data/purchase-schema";
 import { SqlDataSource } from '../../domain/datasource/sql.datasource';
 import { QueryStoreService } from '../../domain/services/query-store-service';
 import { PaginationDto } from "../../domain/dtos/pagination.dto";
-import { sanitizeSQL } from "../../infraestructure/helpers/sanitizeSql";
+import { cleanDiameter, extractAnguloRadio, extraerCedulaDeDescripcion, extraerFiguraDeDescripcion, normalizarDescripcionSWPorCedula, normalizarGrados, normalizeValue, sanitizeSQL } from "../../infraestructure/helpers/sanitizeSql";
+import { ProductRepository } from "../../domain/repositories/product.repository";
+import { VoyageAIService } from "../../infraestructure/services/voyage-ai.service.impl";
+import { PineconeService } from '../../infraestructure/services/pinecone-service';
+import { UpsertProductsUseCase } from "../../application/use-cases/upsert-products.use-case";
+import { MatchProductUseCase } from "../../application/use-cases/match-product.use-case";
+import { ProcessFileAndExtractQuotationUseCase } from "../../application/use-cases/process-file-and-extract-quotation.use-case";
+import { ProcessFileUseCase } from '../../application/use-cases/process-file.use-case';
+import { randomUUID } from "crypto";
+import mysql from 'mysql2/promise';
+import { envs } from "../../config/envs";
+import { extraerDesdeTubo, normalizarTubo } from "../../utils/normalize-text";
+import { error } from "console";
+import { ExtractPipePropertiesUseCase } from "../../application/use-cases/extract-pipe-properties.use-case";
+import { MatchPipeProductsUseCase } from '../../application/use-cases/match-pipe-product.use-case';
+import { MatchCodoProductsUseCase } from '../../application/use-cases/match-codo-products.use-case';
+import { MatchValvProductsUseCase } from "../../application/use-cases/match-valv-products.use-case";
 
 /**
  * @swagger
@@ -18,11 +34,21 @@ import { sanitizeSQL } from "../../infraestructure/helpers/sanitizeSql";
 
 export class GptController {
 
+  private readonly pool = mysql.createPool({
+    host: envs.URL_MYSQL,
+    user: envs.USER_MYSQL,
+    password: envs.PASSWORD_MYSQL,
+    database: envs.DB_MYSQL
+  })
+
   constructor(
 
     private readonly languageModelService: LanguageModelService,
     private readonly sqlDataSource: SqlDataSource,
-    private readonly queryStoreService: QueryStoreService
+    private readonly queryStoreService: QueryStoreService,
+    private readonly productRepository: ProductRepository,
+    private readonly voyage: VoyageAIService,
+    private readonly pinecone: PineconeService
   ) { }
 
 
@@ -133,6 +159,624 @@ export class GptController {
 
 
 
+
+  upsertProducts = async (req: Request, res: Response) => {
+
+
+    res.json({
+      msg: 'Proceso iniciado, se están insertando los productos en lotes de 200...'
+    });
+
+
+
+
+
+    await this.upsertTubos()
+
+    // const products = await this.productRepository.findAllBatches()
+
+
+    // const upsert = new UpsertProductsUseCase(this.voyage, this.pinecone)
+
+    // await upsert.execute(products)
+
+    // res.json({
+    //   msg: 'Insertados correctamente'
+    // })
+
+  }
+
+
+
+  matchProduct = async (req: Request, res: Response) => {
+
+
+    const PRODUCTS_TYPES = {
+      VALVULA: 'VALVULA',
+      CODO: 'CODO',
+      TUBO: 'TUBO'
+    }
+
+    const description = req.body.description;
+
+    let matchProducts;
+
+    if (!description) {
+
+      res.status(400).json({ error: 'description is required' })
+      return
+    }
+
+    const normalizedDescription = description
+
+    const productTipe =
+      await this.languageModelService
+        .detectarTipoProducto(normalizedDescription);
+
+
+
+
+    if (productTipe === null) {
+      res.status(400).json({ error: 'Type Product not found' })
+      return
+    }
+
+    if (!PRODUCTS_TYPES[productTipe]) {
+
+      res.status(404).json({ error: 'Product not found' })
+      return
+    }
+
+
+
+    try {
+
+      if (productTipe === 'VALVULA') {
+
+        matchProducts = await new MatchValvProductsUseCase(
+          this.languageModelService,
+          this.voyage,
+          this.pinecone
+        )
+          .execute(description)
+      }
+
+      if (productTipe === 'TUBO') {
+
+        matchProducts = await new MatchPipeProductsUseCase(
+          this.languageModelService,
+          this.voyage,
+          this.pinecone
+        )
+          .execute(normalizedDescription)
+
+      }
+
+      if (productTipe === "CODO") {
+
+        matchProducts = await new MatchCodoProductsUseCase(
+          this.languageModelService,
+          this.voyage,
+          this.pinecone
+        )
+          .execute(normalizedDescription)
+      }
+
+
+      res.json(matchProducts)
+
+    } catch (error) {
+
+      res.status(500).json({ error })
+
+    }
+
+
+
+
+  }
+
+  transformQuote = async (req: Request, res: Response) => {
+
+    const file = req.file
+
+    if (!file) {
+      res.status(400).json({ error: 'File is required' })
+      return
+    }
+
+    try {
+
+      const texContent = await new ProcessFileUseCase().execute(file)
+      const quotation = await this.languageModelService.extractQuotationData(texContent)
+
+
+      res.json({ quotation: quotation.map((quote) => ({ id: randomUUID(), ...quote })) })
+
+    } catch (error) {
+      res.status(500).json({ error })
+    }
+
+
+
+  }
+
+
+  private upsertValvulas = async () => {
+
+    const limit = 100;
+    let offset = 0;
+    let hasMore = true;
+
+    let concatDescrandEan;
+
+
+
+    while (hasMore) {
+      try {
+        const [rows] = await this.pool.query(
+          `
+          SELECT ICOD,IEAN as ean,
+          I2DESCR AS description2,
+          IDESCR AS description1,
+          FAM2.FAMDESCR as tipo,
+          FAM3.FAMDESCR as subtipo,
+          FAM4.FAMDESCR as material,
+          FAM8.FAMDESCR as diametro,
+          FAM7.FAMDESCR as cedula,
+          UDESCR as unidad,
+          FAM5.FAMDESCR as termino,
+          FAMC.FAMDESCR as acabado
+
+          FROM FINV
+          LEFT JOIN FFAM AS FAM2 ON FAM2.FAMTNUM=FINV.IFAM2
+          LEFT JOIN FFAM AS FAM3 ON FAM3.FAMTNUM=FINV.IFAM3
+          LEFT JOIN FFAM AS FAM4 ON FAM4.FAMTNUM=FINV.IFAM4
+          LEFT JOIN FFAM AS FAM8 ON FAM8.FAMTNUM=FINV.IFAM8
+          LEFT JOIN FFAM AS FAM7 ON FAM7.FAMTNUM=FINV.IFAM7
+          LEFT JOIN FFAM AS FAM5 ON FAM5.FAMTNUM=FINV.IFAM5
+          LEFT JOIN FFAM AS FAMC ON FAMC.FAMTNUM=FINV.IFAMC
+          LEFT JOIN FUNIDAD ON FUNIDAD.UCOD=FINV.IUM
+          LEFT JOIN FINV2 ON FINV2.I2KEY=FINV.ISEQ
+          WHERE  mid(ICOD,1,2)='01' and IEAN like 'V%' 
+          LIMIT ? OFFSET ?;
+        `,
+          [limit, offset]
+        ) as any[];
+
+        console.log(rows.length)
+
+        if (rows.length === 0) {
+          hasMore = false;
+          console.log('No hay más productos.');
+          break;
+        }
+
+        console.log(`Procesando lote OFFSET ${offset}, total: ${rows.length}`);
+
+        const upsert = new UpsertProductsUseCase(this.voyage, this.pinecone);
+
+
+        const terminos = {
+          BISELADO: 'BISELADO',
+          PLANO: 'PLANO',
+          RANURADO: 'RANURADO',
+          ROSCADO: 'ROSCADO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+        }
+
+        const omit = {
+          BISELADO: 'BISELADO',
+          PLANO: 'PLANO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+          NEGRO: 'NEGRO',
+          POLIURETANO: 'POLIURETANO',
+          SW: 'SW'
+        }
+
+        const acabados = {
+          NEGRO: 'NEGRO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+          GALVANIZADO: 'GALVANIZADO',
+          ROJA: 'ROJA',
+          POLIURETANO: 'POLIURETANO',
+        }
+
+
+        concatDescrandEan = rows.map((r, i) => {
+
+
+          const {
+            ean,
+            subtipo,
+            description1,
+            description2,
+            material,
+            diametro,
+            cedula,
+            termino,
+            acabado
+          } = r as Record<string, string>
+
+          const diameter = diametro ? cleanDiameter(diametro) : ''
+
+          const cedOrSW = ((cedula === 'STD' || cedula === '40') && cedula) ?? ((termino === 'SW') && termino)
+
+          const selectDescription = description2 ?? description1
+
+          const figura = extraerFiguraDeDescripcion(selectDescription) ?? ''
+
+          const desc = normalizarDescripcionSWPorCedula(selectDescription, cedOrSW)
+
+          const sub = subtipo === 'NO ASIGNADO' || !subtipo ? '' : subtipo
+
+          let cedulaFinal = cedula && cedula.toUpperCase() !== 'NO ASIGNADO' && cedula !== ''
+            ? cedula.toUpperCase()
+            : extraerCedulaDeDescripcion(selectDescription);
+
+          const mat = material ? normalizeValue(material) : ''
+
+          const term = termino === 'NO ASIGNADO' || !termino ? '' : termino
+          const aca = acabado === 'NO ASIGNADO' || !acabado ? '' : acabado
+
+
+          const addTypes = `${desc}  ${mat}  ${!termino ? '' : omit[termino] ? '' : termino} ${!acabado ? '' : omit[acabado] ? '' : acabado} `
+
+
+          const analyzeResult = {
+            id: normalizarGrados(ean),
+            product: 'VALVULA',
+            material: material ? normalizeValue(material) : '',
+            diameter,
+            ced: cedulaFinal ?? '',
+            termino: term,
+            acabado: aca,
+            subtipo: sub,
+            figura,
+            originalDescription: selectDescription,
+            ean,
+            description: normalizeValue(addTypes),
+          };
+
+          // console.log(analyzeResult)
+
+          return analyzeResult
+        })
+
+
+        await upsert.execute(concatDescrandEan); // Aquí haces el embed de solo ese lote
+
+        offset += limit;
+
+        if (rows.length < limit) {
+          hasMore = false;
+          console.log('Último lote procesado.');
+          break;
+        }
+
+        console.log('Esperando 1 minuto antes del siguiente lote...');
+        await new Promise(resolve => setTimeout(resolve, 60000));
+        // await new Promise(resolve => setTimeout(resolve, 10000));
+
+
+      } catch (error) {
+
+        console.error(`Error en el lote OFFSET ${offset}:`, error);
+        break;
+      }
+    }
+
+  }
+
+
+  private upsertCodos = async () => {
+
+    const limit = 200;
+    let offset = 0;
+    let hasMore = true;
+
+    let concatDescrandEan;
+
+
+
+    while (hasMore) {
+      try {
+        const [rows] = await this.pool.query(
+          `
+          SELECT ICOD,IEAN as ean,
+          I2DESCR AS          description2,
+          IDESCR AS           description1,
+          FAM2.FAMDESCR as    tipo,
+          FAM3.FAMDESCR as    radio,
+          FAM4.FAMDESCR as    material,
+          FAM8.FAMDESCR as    diametro,
+          FAM7.FAMDESCR as    cedula,
+          UDESCR as           unidad,
+          FAM5.FAMDESCR as    termino,
+          FAMC.FAMDESCR as    acabado
+
+          FROM FINV
+          LEFT JOIN FFAM AS FAM2 ON FAM2.FAMTNUM=FINV.IFAM2
+          LEFT JOIN FFAM AS FAM3 ON FAM3.FAMTNUM=FINV.IFAM3
+          LEFT JOIN FFAM AS FAM4 ON FAM4.FAMTNUM=FINV.IFAM4
+          LEFT JOIN FFAM AS FAM8 ON FAM8.FAMTNUM=FINV.IFAM8
+          LEFT JOIN FFAM AS FAM7 ON FAM7.FAMTNUM=FINV.IFAM7
+          LEFT JOIN FFAM AS FAM5 ON FAM5.FAMTNUM=FINV.IFAM5
+          LEFT JOIN FFAM AS FAMC ON FAMC.FAMTNUM=FINV.IFAMC
+          LEFT JOIN FUNIDAD ON FUNIDAD.UCOD=FINV.IUM
+          LEFT JOIN FINV2 ON FINV2.I2KEY=FINV.ISEQ
+          WHERE  mid(ICOD,1,2)='01' and I2DESCR like 'CODO%' AND IEAN <> ''
+          LIMIT ? OFFSET ?;
+        `,
+          [limit, offset]
+        ) as any[];
+
+        console.log(rows.length)
+
+        if (rows.length === 0) {
+          hasMore = false;
+          console.log('No hay más productos.');
+          break;
+        }
+
+        console.log(`Procesando lote OFFSET ${offset}, total: ${rows.length}`);
+
+        const upsert = new UpsertProductsUseCase(this.voyage, this.pinecone);
+
+
+        const terminos = {
+          BISELADO: 'BISELADO',
+          PLANO: 'PLANO',
+          RANURADO: 'RANURADO',
+          ROSCADO: 'ROSCADO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+        }
+
+        const omit = {
+          BISELADO: 'BISELADO',
+          PLANO: 'PLANO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+          NEGRO: 'NEGRO',
+          POLIURETANO: 'POLIURETANO',
+          SW: 'SW'
+        }
+
+        const acabados = {
+          NEGRO: 'NEGRO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+          GALVANIZADO: 'GALVANIZADO',
+          ROJA: 'ROJA',
+          POLIURETANO: 'POLIURETANO',
+        }
+
+
+        concatDescrandEan = rows.map((r, i) => {
+
+
+          const {
+            ean,
+            radio,
+            material,
+            diametro,
+            cedula,
+            termino,
+            acabado
+          } = r as Record<string, string>
+
+          const diameter = diametro ? cleanDiameter(diametro) : ''
+
+          const cedOrSW = ((cedula === 'STD' || cedula === '40') && cedula) ?? ((termino === 'SW') && termino)
+
+          const selectDescription = r.description2
+
+          const figura = extraerFiguraDeDescripcion(selectDescription) ?? ''
+
+          const desc = normalizarDescripcionSWPorCedula(selectDescription, cedOrSW)
+
+
+          const { angulo, radio: radi } = extractAnguloRadio(radio === 'NO ASIGNADO' || !radio ? selectDescription : radio)
+
+          let cedulaFinal = cedula && cedula.toUpperCase() !== 'NO ASIGNADO' && cedula !== ''
+            ? cedula.toUpperCase()
+            : extraerCedulaDeDescripcion(selectDescription);
+
+          const mat = material ? normalizeValue(material) : ''
+
+          const term = termino === 'NO ASIGNADO' || !termino ? '' : termino
+          const aca = acabado === 'NO ASIGNADO' || !acabado ? '' : acabado
+          const rad = radi ?? ''
+          const ang = angulo ?? ''
+
+          const addTypes = ` ${desc}  ${mat}  ${!termino ? '' : omit[termino] ? '' : termino} ${!acabado ? '' : omit[acabado] ? '' : acabado} `
+
+
+          const analyzeResult = {
+            id: normalizarGrados(ean),
+            product: 'CODO',
+            material: material ? normalizeValue(material) : '',
+            diameter,
+            ced: cedulaFinal ?? '',
+            termino: term,
+            acabado: aca,
+            radio: rad,
+            angulo: ang,
+            figura,
+            originalDescription: selectDescription,
+            ean,
+            description: normalizeValue(addTypes),
+          };
+
+          return analyzeResult
+        })
+
+
+        await upsert.execute(concatDescrandEan); // Aquí haces el embed de solo ese lote
+
+        offset += limit;
+
+        if (rows.length < limit) {
+          hasMore = false;
+          console.log('Último lote procesado.');
+          break;
+        }
+
+        console.log('Esperando 1 minuto antes del siguiente lote...');
+        await new Promise(resolve => setTimeout(resolve, 60000));
+        // await new Promise(resolve => setTimeout(resolve, 10000));
+
+
+      } catch (error) {
+
+        console.error(`Error en el lote OFFSET ${offset}:`, error);
+        break;
+      }
+    }
+  }
+
+
+  private upsertTubos = async () => {
+
+    const limit = 200;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      try {
+        const [rows] = await this.pool.query(
+          `
+          SELECT ICOD,IEAN as ean,
+          I2DESCR AS description2,
+          IDESCR AS description1,
+          FAM2.FAMDESCR as tipo,
+          FAM3.FAMDESCR as costura,
+          FAM4.FAMDESCR as material,
+          FAM8.FAMDESCR as diametro,
+          FAM7.FAMDESCR as cedula,
+          UDESCR as unidad,
+          FAM5.FAMDESCR as termino,
+          FAMC.FAMDESCR as acabado
+
+          FROM FINV
+          LEFT JOIN FFAM AS FAM2 ON FAM2.FAMTNUM=FINV.IFAM2
+          LEFT JOIN FFAM AS FAM3 ON FAM3.FAMTNUM=FINV.IFAM3
+          LEFT JOIN FFAM AS FAM4 ON FAM4.FAMTNUM=FINV.IFAM4
+          LEFT JOIN FFAM AS FAM8 ON FAM8.FAMTNUM=FINV.IFAM8
+          LEFT JOIN FFAM AS FAM7 ON FAM7.FAMTNUM=FINV.IFAM7
+          LEFT JOIN FFAM AS FAM5 ON FAM5.FAMTNUM=FINV.IFAM5
+          LEFT JOIN FFAM AS FAMC ON FAMC.FAMTNUM=FINV.IFAMC
+          LEFT JOIN FUNIDAD ON FUNIDAD.UCOD=FINV.IUM
+          LEFT JOIN FINV2 ON FINV2.I2KEY=FINV.ISEQ
+          WHERE (mid(IEAN,1,3)='TSC' OR mid(IEAN,1,3)='TCC' ) AND mid(ICOD,1,2)='01'
+          LIMIT ? OFFSET ?;
+        `,
+          [limit, offset]
+        ) as any[];
+
+        console.log(rows.length)
+
+        if (rows.length === 0) {
+          hasMore = false;
+          console.log('No hay más productos.');
+          break;
+        }
+
+        console.log(`Procesando lote OFFSET ${offset}, total: ${rows.length}`);
+
+        const upsert = new UpsertProductsUseCase(this.voyage, this.pinecone);
+
+
+
+
+
+        const terminos = {
+          BISELADO: 'BISELADO',
+          PLANO: 'PLANO',
+          RANURADO: 'RANURADO',
+          ROSCADO: 'ROSCADO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+        }
+
+        const omit = {
+          BISELADO: 'BISELADO',
+          PLANO: 'PLANO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+          NEGRO: 'NEGRO',
+          POLIURETANO: 'POLIURETANO',
+        }
+
+        const acabados = {
+          NEGRO: 'NEGRO',
+          'NO ASIGNADO': 'NO ASIGNADO',
+          GALVANIZADO: 'GALVANIZADO',
+          ROJA: 'ROJA',
+          POLIURETANO: 'POLIURETANO',
+        }
+
+
+
+        const concatDescrandEan = rows.map((r) => {
+
+          const { tipo, costura, material, diametro, cedula, unidad, termino, acabado, ean } = r as Record<string, string>
+
+          const selectDescription = r.description2 ?? r.description1
+
+          const cleanDescription = extraerDesdeTubo(selectDescription);
+
+          const ced = cedula === 'NO ASIGNADO' || !cedula ? '' : `CED. ${cedula}`
+
+          const addTypes = `${normalizarTubo(tipo)} de ${material} (${costura}) (${diametro} ${ced})  en ${unidad}  ${omit[termino] ? '' : termino} ${omit[acabado] ? '' : acabado ?? ''} `
+
+          const normalizePipe = normalizarTubo(tipo)
+          const analyzeResult = {
+            product: normalizeValue(normalizePipe),
+            costura: costura ? normalizeValue(costura) : '',
+            material: normalizeValue(material),
+            diameter: diametro ?? '',
+            ced: cedula ?? '',
+            acabado: acabado ?? '',
+            originalDescription: r.description2 ?? r.description1,
+            ean,
+            // familias: ["tubos", "sin costura", "acero al carbón", '4"', "80"],
+            description: addTypes,
+            // ...otros campos
+          };
+
+
+
+
+          return {
+            id: ean,
+            ...analyzeResult,
+            description: normalizeValue(analyzeResult.description)
+          }
+        })
+        await upsert.execute(concatDescrandEan); // Aquí haces el embed de solo ese lote
+
+        // for (let p of concatDescrandEan) {
+
+        //   console.log(p)
+        // }
+
+        offset += limit;
+
+        if (rows.length < limit) {
+          hasMore = false;
+          console.log('Último lote procesado.');
+          break;
+        }
+
+        console.log('Esperando 1 minuto antes del siguiente lote...');
+        await new Promise(resolve => setTimeout(resolve, 60000));
+        // await new Promise(resolve => setTimeout(resolve, 1000));
+
+
+      } catch (error) {
+        console.error(`Error en el lote OFFSET ${offset}:`, error);
+        break;
+      }
+    }
+
+  }
 
 
 
