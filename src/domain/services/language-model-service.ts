@@ -4,6 +4,14 @@ import { GptEntity } from "../entities/gpt.entity";
 import { QuotationEntity } from "../entities/quotation.entity";
 import { SummaryEntity } from "../entities/summary.entity";
 
+export type TuboPlasticoProperties = {
+  producto: "TUBO PLASTICO" | null;
+  material: string | null;
+  diametro: string | null;
+  cedula: string | null;
+  descripcion_limpia: string | null;
+};
+
 export interface CodoData {
   producto: string | null;
   diametro: string | null;
@@ -33,6 +41,20 @@ export interface ValvulaProperties {
   figura: string | null;
 }
 
+export interface BridaProperties {
+  producto: string | null; // "BRIDA" si lo detecta, si no null
+  diametro: string | null; // Ej: 10, 10 1/2, 8, 4 1/2 (sin comillas ni pulgadas)
+  cedula: string | null;   // Ej: "40", "STD", etc.
+  tipo_cuello: string | null; // Ej: "CIEGA", "CUELLO", "ROSCA", "PLANA", "LAPJOINT", etc.
+  material: string | null; // Ej: "ACERO AL CARBON", "INOXIDABLE", etc.
+  presion: string | null;  // Ej: "150", "300", "600", "2500", etc.
+  norma: string | null;    // Ej: "ANSI", "DIN", "SO", "API", etc.
+  t_material: string | null; // Ej: "304L", "316L", etc. (el número después de T-)
+  cara: string | null; // Ej: "REALZADA", "PLANA", "ANILLO", etc.
+  figura: string | null; // Si viene "F", "FIG", "FIGURA" seguido de número/código
+  descripcion_limpia: string | null; // Texto limpio y técnico
+}
+
 
 export abstract class LanguageModelService {
 
@@ -54,7 +76,11 @@ export abstract class LanguageModelService {
 
   abstract extractCodoProperties(descripcion: string): Promise<CodoData>
 
-  abstract detectarTipoProducto(descripcion: string): Promise<"TUBO" | "CODO" | "VALVULA" | null>
+  abstract detectarTipoProducto(descripcion: string): Promise<"TUBO" | "TUBO PLASTICO" | "CODO" | "VALVULA" | "BRIDA" | null>
 
-  abstract extractValvulaProperties(description:string): Promise<ValvulaProperties>
+  abstract extractValvulaProperties(description: string): Promise<ValvulaProperties>
+
+  abstract extractBridaProperties(descripcion: string): Promise<BridaProperties | null>
+
+  abstract extractTuboPlasticoProperties(descripcion: string): Promise<TuboPlasticoProperties | null>
 }

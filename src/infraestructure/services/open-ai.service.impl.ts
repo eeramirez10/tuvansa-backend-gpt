@@ -4,7 +4,7 @@ import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql
 import { GptEntity } from "../../domain/entities/gpt.entity";
 import { QuotationEntity } from "../../domain/entities/quotation.entity";
 import { SummaryEntity } from "../../domain/entities/summary.entity";
-import { LanguageModelService, ValvulaProperties } from "../../domain/services/language-model-service";
+import { BridaProperties, LanguageModelService, TuboPlasticoProperties, ValvulaProperties } from "../../domain/services/language-model-service";
 import { openAiConfig } from "../../config/open-ai-config";
 import { schema } from "../../data/schema";
 
@@ -17,11 +17,11 @@ export class OpenAiServiceImpl implements LanguageModelService {
 
   }
 
+
+
   embed(text: string): Promise<void> {
     throw new Error("Method not implemented.");
   }
-
-
 
   async extractQuotationData(textContent: string): Promise<QuotationEntity[]> {
     const response = await this.openai.chat.completions.create({
@@ -60,7 +60,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
           //   `,
         },
       ],
-      temperature: 0.2,
+      temperature: 0,
       max_tokens: 10000,
     });
 
@@ -185,7 +185,6 @@ export class OpenAiServiceImpl implements LanguageModelService {
 
   async detectCosturaType(descripcion: string): Promise<"SIN COSTURA" | "CON COSTURA" | null> {
 
-    console.log({ descripcion })
     const prompt = `
       Dada la siguiente descripción de un producto industrial, indica únicamente si el producto es SIN COSTURA o CON COSTURA.
       Considera todas las variantes y abreviaciones para ambos casos, por ejemplo:
@@ -199,7 +198,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
     `;
 
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: 'chatgpt-4o-latest',
       messages: [{ role: "user", content: prompt }],
       max_tokens: 10,
       temperature: 0.0,
@@ -232,7 +231,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
 `;
 
     const resp = await this.openai.chat.completions.create({
-      model: "gpt-4o",
+      model: 'chatgpt-4o-latest',
       messages: [
         {
           role: "system",
@@ -267,7 +266,7 @@ export class OpenAiServiceImpl implements LanguageModelService {
 
   async extractCodoProperties(descripcion: string) {
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'chatgpt-4o-latest',
       messages: [
         {
           role: 'system',
@@ -347,26 +346,30 @@ export class OpenAiServiceImpl implements LanguageModelService {
     }
   }
 
-  async detectarTipoProducto(
-    descripcion: string
-  ): Promise<"TUBO" | "CODO" | "VALVULA" | null> {
+
+
+  async detectarTipoProducto(descripcion: string): Promise<"TUBO" | "TUBO PLASTICO" | "CODO" | "VALVULA" | "BRIDA" | null> {
     const prompt = `
-    Analiza la siguiente descripción de producto y responde únicamente con el tipo de producto principal.
-    Las únicas opciones posibles son:
-    - TUBO (incluye términos como tubería, tubo, pipe, piping, etc.)
-    - CODO (incluye términos como codo, elbow, etc.)
-    - VALVULA (incluye términos como válvula, valvula, valve, etc.)
-    Si no encuentras ninguna, responde SOLO con null.
-    No des ninguna explicación adicional, solo la palabra exacta (TUBO, CODO, VALVULA o null), en mayúsculas y sin acentos.
-    Descripción: "${descripcion}"
-  `;
+      Analiza la siguiente descripción de producto y responde únicamente con el tipo de producto principal.
+      Las únicas opciones posibles son:
+      - TUBO (incluye términos como tubería, tubo, pipe, piping, etc. pero que NO sea de plástico)
+      - TUBO PLASTICO (incluye términos como tubo plástico, tubería plástica, tubo pvc, tubería pvc, plastic pipe, pvc pipe, tubo ppr, tubería ppr, tubo hdpe, tubería hdpe, tubo cpvc, tubería cpvc, polietileno, polipropileno, polyethylene, polypropylene, etc.)
+      - CODO (incluye términos como codo, elbow, etc.)
+      - VALVULA (incluye términos como válvula, valvula, valve, etc.)
+      - BRIDA (incluye términos como brida, flange, etc.)
+
+      Si no encuentras ninguna, responde SOLO con null.
+      No des ninguna explicación adicional, solo la palabra exacta (TUBO, TUBO PLASTICO, CODO, VALVULA, BRIDA o null), en mayúsculas y sin acentos.
+      Descripción: "${descripcion}"
+    `;
+
 
     const resp = await this.openai.chat.completions.create({
       model: 'chatgpt-4o-latest',
       messages: [
         {
           role: 'system',
-          content: 'Eres un asistente para clasificar productos industriales como TUBO, CODO o VALVULA.',
+          content: 'Eres un asistente para clasificar productos industriales como TUBO, TUBO PLASTICO, CODO, VALVULA o BRIDA.',
         },
         {
           role: 'user',
@@ -378,15 +381,17 @@ export class OpenAiServiceImpl implements LanguageModelService {
     });
 
     let tipo = resp.choices[0].message.content?.trim().toUpperCase() || '';
-    if (["TUBO", "CODO", "VALVULA"].includes(tipo)) return tipo as "TUBO" | "CODO" | "VALVULA";
+    if (
+      ["TUBO", "TUBO PLASTICO", "CODO", "VALVULA", "BRIDA"].includes(tipo)
+    ) return tipo as "TUBO" | "TUBO PLASTICO" | "CODO" | "VALVULA" | "BRIDA";
     return null;
   }
 
-  async extractValvulaProperties(
-    descripcion: string,
-  ): Promise<ValvulaProperties> {
+
+
+  async extractValvulaProperties(descripcion: string): Promise<ValvulaProperties> {
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'chatgpt-4o-latest',
       messages: [
         {
           role: 'system',
@@ -437,37 +442,139 @@ export class OpenAiServiceImpl implements LanguageModelService {
   }
 
 
-  // async detectarTipoProducto(  descripcion: string): Promise<"TUBO" | "CODO" | null> {
-  //   const prompt = `
-  //   Analiza la siguiente descripción de producto y responde únicamente con el tipo de producto principal. 
-  //   Las únicas opciones posibles son:
-  //   - TUBO (incluye términos como tubería, tubo, etc.)
-  //   - CODO (incluye términos como codo, elbow, etc.)
-  //   Si no encuentras ninguna, responde SOLO con null.
-  //   No des ninguna explicación adicional, solo la palabra exacta (TUBO, CODO o null), en mayúsculas y sin acentos.
-  //   Descripción: "${descripcion}"
-  // `;
 
-  //   const resp = await this.openai.chat.completions.create({
-  //     model: 'chatgpt-4o-latest',
-  //     messages: [
-  //       {
-  //         role: 'system',
-  //         content: 'Eres un asistente para clasificar productos industriales solo como TUBO o CODO.',
-  //       },
-  //       {
-  //         role: 'user',
-  //         content: prompt,
-  //       }
-  //     ],
-  //     temperature: 0,
-  //     max_tokens: 10,
-  //   });
+  async extractBridaProperties(descripcion: string): Promise<BridaProperties | null> {
+    const prompt = `
+    Extrae los siguientes campos clave de la descripción de una brida industrial. Devuelve todos los datos en MAYÚSCULAS, sin acentos, y si no se encuentra un valor, pon null.
+      
+    - producto: Si la descripción indica que es una brida, pon "BRIDA"; si no, pon null.
+    - diametro: Diámetro nominal principal, sin símbolo de pulgadas ni comillas (ejemplo: 10, 10 1/2, 8, 4 1/2, etc.).
+    - cedula: Valor de la cédula o "STD" si es estándar, si no se encuentra, pon null.
+    - tipo_cuello: Tipo de cuello si lo tiene (ejemplo: "CIEGA", "CUELLO", "ROSCA", "PLANA", "LAPJOINT"), si no se encuentra pon null.
+    - material: Material principal, por ejemplo "ACERO AL CARBON", "INOXIDABLE", etc., si no se encuentra pon null.
+    - presion: Valor numérico de presión en LBS (ejemplo: 150, 300, 600, etc.), si no se encuentra pon null.
+    - norma: Norma de fabricación (ejemplo: ANSI, DIN, SO, API, etc.), si no se encuentra pon null.
+    - t_material: Si viene T-304, T-304L, T-316L, etc. (el valor después de T-), si no se encuentra pon null.
+    - cara: Tipo de cara (ejemplo: REALZADA, PLANA, ANILLO), si no se encuentra pon null.
+    - figura: Si hay un código o figura (ejemplo: F13, FIGURA 13, etc.), si no se encuentra pon null.
+    - descripcion_limpia: Un resumen limpio y técnico de la descripción usando los datos extraídos.
+      
+    Descripción: ${descripcion}
+      
+    Dame la información en un objeto JSON con los siguientes nombres exactos de propiedad:
+      
+    {
+      producto: ...,
+      diametro: ...,
+      cedula: ...,
+      tipo_cuello: ...,
+      material: ...,
+      presion: ...,
+      norma: ...,
+      t_material: ...,
+      cara: ...,
+      figura: ...,
+      descripcion_limpia: ...
+    }
+    `;
 
-  //   let tipo = resp.choices[0].message.content?.trim().toUpperCase() || '';
-  //   if (tipo === 'TUBO' || tipo === 'CODO') return tipo as "TUBO" | "CODO";
-  //   return null;
-  // }
+    const response = await this.openai.chat.completions.create({
+      model: 'chatgpt-4o-latest',
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres un asistente experto en productos industriales que extrae datos clave de descripciones para integración en un sistema de inventarios.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0,
+    });
+
+    let data = response.choices[0]?.message?.content || "";
+
+    // Limpieza del formato de código si viene como bloque markdown
+    if (data.startsWith("```json")) {
+      data = data.replace(/^```json/, "").replace(/```$/, "").trim();
+    }
+    if (data.startsWith("```")) {
+      data = data.replace(/^```/, "").replace(/```$/, "").trim();
+    }
+
+    try {
+      return JSON.parse(data);
+    } catch (err) {
+      console.error("Error al parsear respuesta de OpenAI:", data);
+      return null;
+    }
+  }
+
+
+
+
+  async extractTuboPlasticoProperties(descripcion: string): Promise<TuboPlasticoProperties | null> {
+    const prompt = `
+    Analiza la siguiente descripción de producto y extrae únicamente estos campos clave.
+    Devuelve todos los valores en MAYÚSCULAS, sin acentos. Si no hay valor, pon null.
+      
+    - producto: Si la descripción indica que es un tubo plástico, pon "TUBO PLASTICO"; si no, pon null.
+    - material: El tipo de plástico si está presente, por ejemplo PVC, CPVC, PPR, HDPE, PEAD, POLIETILENO, POLIPROPILENO, etc. Si no lo encuentras, pon null.
+    - diametro: Diámetro nominal principal, en pulgadas o milímetros, sin símbolos (por ejemplo: 2 1/2, 3, 4, 63, 110, etc. Convierte 2-1/2" a 2 1/2, y 063MM a 63).
+    - cedula: Valor numérico de la cédula si está presente (por ejemplo: 40, 80), o "SCH40", "SCH80", "CED 40", etc. Si no lo encuentras, pon null.
+    - descripcion_limpia: Un resumen limpio y técnico de la descripción usando los datos extraídos, útil para búsqueda.
+      
+      Dame la información en un objeto JSON con los siguientes nombres exactos de propiedad:
+
+    Ejemplo de formato de salida:
+    {
+      producto: "TUBO PLASTICO",
+      material: "PVC",
+      diametro: "63",
+      cedula: "40",
+      descripcion_limpia: "TUBO PVC 63MM CED 40"
+    }
+      
+    Descripción: ${descripcion}
+      
+    Devuelve SOLO el objeto JSON.
+    `;
+
+    const response = await this.openai.chat.completions.create({
+      model: "chatgpt-4o-latest",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres un asistente experto en productos industriales que extrae datos clave de descripciones para integración en un sistema de inventarios.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0,
+    });
+
+    let data = response.choices[0]?.message?.content || "";
+
+    // Limpieza si viene en formato markdown o code block
+    if (data.startsWith("```json")) {
+      data = data.replace(/^```json/, "").replace(/```$/, "").trim();
+    }
+    if (data.startsWith("```")) {
+      data = data.replace(/^```/, "").replace(/```$/, "").trim();
+    }
+
+    try {
+      return JSON.parse(data) as TuboPlasticoProperties;
+    } catch (err) {
+      console.error("Error al parsear respuesta de OpenAI:", data);
+      return null;
+    }
+  }
 
 
 }

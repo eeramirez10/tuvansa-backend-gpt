@@ -35,5 +35,5 @@ POST http://localhost:4500/api/gpt/match-product
 Content-Type: application/json
 
 {
-  "description":"TUBO CON COSTURA GALVANIZADO ROSCADO C/COPLE DE 88.9 X 5.5 MM. ( 3\" CED. 40 )"
+  "description":"tubo tcc 40 de 4\" "
 }
