@@ -1,0 +1,9 @@
+
+
+### Find products
+POST https://tuvansa-gpt-71d64b682e77.herokuapp.com/api/gpt/match-product
+Content-Type: application/json
+
+{
+  "description":"tubo pvc 40 de 4\" "
+}

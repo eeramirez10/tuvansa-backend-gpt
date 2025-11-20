@@ -1,0 +1,39 @@
+### Post
+POST http://tuvansa-gpt-71d64b682e77.herokuapp.com/api/gpt/user-prompt-to-sql
+Content-Type: application/json
+
+{
+  "prompt":"Muestra las ventas totales de los 10 mejores clientes del año 2024"
+}
+
+
+
+### Post
+POST http://localhost:3500/api/gpt/user-prompt-to-sql
+Content-Type: application/json
+
+{
+  "prompt":"las mejor venta del 2024"
+}
+
+
+
+### Post Base de datos de Compras
+POST http://localhost:3500/api/gpt/purchase-analisys
+Content-Type: application/json
+
+{
+  "prompt":"dame los productyos de lento movinmiento de mexico"
+}
+
+### Inert products 
+GET http://localhost:4500/api/gpt/upsert-products
+
+
+### Inert products 
+POST http://localhost:4500/api/gpt/match-product
+Content-Type: application/json
+
+{
+  "description":"Válvula check de acero bridada 10.5 kgs. De 152 mm. (6\" 150 lbs.), astm a216 gr.wcb mca walworth fig.5341f trim 8"
+}

@@ -1,0 +1,17 @@
+import 'dotenv/config'
+import { get } from 'env-var'
+
+export const envs = {
+  OPEN_API_KEY: get('OPEN_API_KEY').required().asString(),
+  URL_MYSQL: get('URL_MYSQL').required().asString(),
+  USER_MYSQL: get('USER_MYSQL').required().asString(),
+  PASSWORD_MYSQL: get('PASSWORD_MYSQL').required().asString(),
+  DB_MYSQL: get('DB_MYSQL').required().asString(),
+  PORT: get('PORT').required().asString(),
+  DEEP_SEEK_API_KEY: get('DEEP_SEEK_API_KEY').asString(),
+  DEEP_SEEK_BASE_URL: get('DEEP_SEEK_BASE_URL').asString(),
+  REDIS_USER : get('REDIS_USER').required().asString(),
+  REDIS_PASSWORD : get('REDIS_PASSWORD').required().asString(),
+  PINECONE_API_KEY: get('PINECONE_API_KEY').required().asString(),
+  VOYAGEAI_API_KEY: get('VOYAGEAI_API_KEY').required().asString()
+}
