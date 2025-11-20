@@ -4,3 +4,4 @@ keys/
 /postgres
 dist/
 .env
+/exports
