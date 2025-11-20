@@ -1,16 +1,17 @@
 import { Router } from "express";
-import { GptDataSource } from "../../domain/datasource/gpt.datasource";
-import { GptDataSourceImpl } from '../../infraestructure/datasource/gpt.datasource.impl';
-import OpenAI from "openai";
-import { GptController } from "./controller";
-import { GptRepositoryImpl } from "../../infraestructure/repositories/gpt.repository.impl";
-import { envs } from "../../config/envs";
-import { ProcessPromptForSqlUseCase } from "../../application/use-cases/process-prompt-for-sql.use-case";
-import { ExecuteSqlUseCase } from '../../application/use-cases/execute-sql.use-case';
+
 import { ProscaiDatasourceImpl } from "../../infraestructure/datasource/proscai.datasource.impl";
-import { SqlRepository } from "../../domain/repositories/sql.repository";
-import { ProscaiRepositoryImpl } from "../../infraestructure/repositories/proscai.repository.impl";
-import { GenerateSummaryUseCase } from '../../application/use-cases/generate-summary.use-case';
+import { GptController } from "./controller";
+import { OpenAiServiceImpl } from "../../infraestructure/services/open-ai.service.impl";
+import { QueryStoreRedis } from '../../infraestructure/services/query-strore-redis';
+import { ProscaiProductsRepositoryImpl } from '../../infraestructure/repositories/proscai-products.repository.impl';
+import { ProscaiProductsDatasourceImpl } from "../../infraestructure/datasource/proscai-products.datasource.impl";
+import { VoyageAIService } from "../../infraestructure/services/voyage-ai.service.impl";
+import { PineconeService } from "../../infraestructure/services/pinecone-service";
+import { upload } from "../../config/multer-config";
+
+
+
 
 
 export class GptRoutes {
@@ -19,24 +20,30 @@ export class GptRoutes {
 
   static routes = (): Router => {
     const router = Router()
-    const openai = new OpenAI({ apiKey: envs.DEEP_SEEK_API_KEY, baseURL: envs.DEEP_SEEK_BASE_URL  })
-    const dataSource = new GptDataSourceImpl(openai)
-    const sqlDataSource = new ProscaiDatasourceImpl({
-      host: envs.URL_MYSQL,
-      user: envs.USER_MYSQL,
-      password: envs.PASSWORD_MYSQL,
-      database: envs.DB_MYSQL
-    })
-    const sqlRepository = new ProscaiRepositoryImpl(sqlDataSource)
-    const repository = new GptRepositoryImpl(dataSource)
-    const processPromptForSqlUseCase = new ProcessPromptForSqlUseCase(repository)
-    const executeSqlUseCase = new  ExecuteSqlUseCase(sqlRepository)
-    const generateSummaryUseCase = new GenerateSummaryUseCase(repository)
+
+    const sqlDataSource = new ProscaiDatasourceImpl()
+    const openAiService = new OpenAiServiceImpl()
+    const datasource = new ProscaiProductsDatasourceImpl()
+    const repo = new ProscaiProductsRepositoryImpl(datasource);
+    const voyage = new VoyageAIService();
+    const pinecone = new PineconeService();
+
+    const { purchaseAnalisys, getStoredQuery, upsertProducts, matchProduct, transformQuote }
+      = new GptController(
+        openAiService,
+        sqlDataSource,
+        new QueryStoreRedis(),
+        repo,
+        voyage,
+        pinecone
+      )
 
 
-    const { userPromptToSql } = new GptController(processPromptForSqlUseCase, executeSqlUseCase, generateSummaryUseCase )
-    // @ts-ignore
-    router.post('/user-prompt-to-sql', userPromptToSql)
+    router.post('/purchase-analisys', purchaseAnalisys)
+    router.get('/sql/query', getStoredQuery)
+    router.get('/upsert-products', upsertProducts)
+    router.post('/match-product', matchProduct)
+    router.post('/extract-items-quote',upload.single('quote'),transformQuote )
 
     return router
   }

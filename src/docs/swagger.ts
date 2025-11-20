@@ -1,5 +1,4 @@
 // src/docs/swagger.ts
-
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { Application } from 'express';
@@ -16,58 +15,109 @@ const options: swaggerJsdoc.Options = {
     servers: [
       {
         url: 'https://tuvansa-gpt-71d64b682e77.herokuapp.com/api',
-        description: 'Servidor de Produccion',
+        description: 'Servidor de Producción',
       },
       {
         url: 'http://localhost:3000/api',
         description: 'Servidor de Desarrollo',
       },
-      // Puedes añadir más servidores (producción, staging, etc.)
     ],
-    "paths": {
-    "/gpt/user-prompt-to-sql": {
-      "post": {
-        "summary": "Genera y ejecuta una consulta SQL basada en un prompt del usuario, y devuelve un resumen.",
-        "tags": [
-          "GPT"
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserPrompt"
+    paths: {
+      "/purchase-analisys": {
+        post: {
+          summary: "Genera una consulta SQL desde un prompt del usuario y devuelve resultados paginados",
+          tags: ["GPT"],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/UserPrompt"
+                }
+              }
+            }
+          },
+          responses: {
+            200: {
+              description: "Consulta generada y ejecutada exitosamente",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/PaginatedResponse"
+                  }
+                }
+              }
+            },
+            400: {
+              description: "Error en la solicitud",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
+              }
+            },
+            500: {
+              description: "Error del servidor",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
               }
             }
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Respuesta exitosa con la consulta SQL generada, el resumen y el total de ventas.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SuccessResponse"
+        }
+      },
+      "/sql/query": {
+        get: {
+          summary: "Ejecuta una consulta previamente generada usando su queryId con paginación",
+          tags: ["GPT"],
+          parameters: [
+            {
+              name: "queryId",
+              in: "query",
+              required: true,
+              schema: { type: "string" },
+              description: "Identificador único de la consulta previamente generada"
+            },
+            {
+              name: "page",
+              in: "query",
+              required: false,
+              schema: { type: "integer", default: 1 },
+              description: "Número de página actual"
+            },
+            {
+              name: "pageSize",
+              in: "query",
+              required: false,
+              schema: { type: "integer", default: 10 },
+              description: "Cantidad de resultados por página"
+            }
+          ],
+          responses: {
+            200: {
+              description: "Consulta ejecutada exitosamente",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/PaginatedResponse"
+                  }
                 }
               }
-            }
-          },
-          "400": {
-            "description": "Solicitud inválida.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+            },
+            400: {
+              description: "Parámetros inválidos",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
                 }
               }
-            }
-          },
-          "500": {
-            "description": "Error interno del servidor.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+            },
+            500: {
+              description: "Error del servidor",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
                 }
               }
             }
@@ -75,33 +125,6 @@ const options: swaggerJsdoc.Options = {
         }
       }
     },
-    "/gpt/test": {
-      "get": {
-        "summary": "Endpoint de prueba para verificar Swagger.",
-        "tags": [
-          "GPT"
-        ],
-        "responses": {
-          "200": {
-            "description": "Respuesta de prueba.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Swagger está funcionando correctamente."
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
     components: {
       schemas: {
         UserPrompt: {
@@ -114,52 +137,51 @@ const options: swaggerJsdoc.Options = {
             },
           },
           example: {
-            prompt: "Cual es mi mejor cleinte del 2024",
+            prompt: "Genera un análisis de reabastecimiento para Monterrey.",
           },
+        },
+        PaginatedResponse: {
+          type: 'object',
+          properties: {
+            queryId: {
+              type: 'string',
+              description: 'ID de la consulta almacenada',
+              example: 'f3a1e8bc-bfe2-4e88-83f2-4f4d1c29e231'
+            },
+            items: {
+              type: 'array',
+              items: {
+                type: 'object'
+              },
+              description: 'Array de resultados paginados'
+            },
+            page: {
+              type: 'integer',
+              example: 1
+            },
+            pageSize: {
+              type: 'integer',
+              example: 10
+            }
+          }
         },
         ErrorResponse: {
           type: 'object',
           properties: {
             error: {
               type: 'string',
-              description: 'Descripción del error.',
+              description: 'Mensaje de error',
+              example: 'queryId es requerido'
             },
-          },
-          example: {
-            error: "El campo 'prompt' es requerido y debe ser una cadena de texto.",
-          },
-        },
-        SuccessResponse: {
-          type: 'object',
-          properties: {
-            sql: {
-              type: 'string',
-              description: 'La consulta SQL generada.',
-            },
-            summary: {
-              type: 'string',
-              description: 'Resumen humanizado de los resultados de la consulta.',
-            },
-            total: {
-              type: 'integer',
-              description: 'Total de ventas obtenidas.',
-            },
-          },
-          example: {
-            sql: "SELECT * FROM ventas WHERE fecha = CURDATE();",
-            summary: "Las ventas totales fueron de 200 unidades.",
-            total: 200,
-          },
-        },
+          }
+        }
       },
     },
   },
-  // Ruta a los archivos que contienen anotaciones de Swagger (JSDoc)
   apis: [path.join(__dirname, '../presentation/gpt/controller.ts')],
 };
 
 const specs = swaggerJsdoc(options);
-// console.log("Swagger specs generated:", JSON.stringify(specs, null, 2)); // Para depuración
 
 export const setupSwagger = (app: Application) => {
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));

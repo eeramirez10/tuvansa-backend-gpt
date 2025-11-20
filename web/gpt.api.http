@@ -7,3 +7,33 @@ Content-Type: application/json
 }
 
 
+
+### Post
+POST http://localhost:3500/api/gpt/user-prompt-to-sql
+Content-Type: application/json
+
+{
+  "prompt":"las mejor venta del 2024"
+}
+
+
+
+### Post Base de datos de Compras
+POST http://localhost:3500/api/gpt/purchase-analisys
+Content-Type: application/json
+
+{
+  "prompt":"dame los productyos de lento movinmiento de mexico"
+}
+
+### Inert products 
+GET http://localhost:4500/api/gpt/upsert-products
+
+
+### Inert products 
+POST http://localhost:4500/api/gpt/match-product
+Content-Type: application/json
+
+{
+  "description":"tubo tcc 40 de 4\" "
+}
