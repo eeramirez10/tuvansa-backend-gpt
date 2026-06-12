@@ -94,6 +94,32 @@ export interface BridaProperties {
   descripcion_limpia: string | null; // Texto limpio y técnico
 }
 
+export type ProductTechnicalSummaryInput = {
+  productName: string;
+  sourceDescription?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  material?: string | null;
+  diameter?: string | null;
+  ced?: string | null;
+  costura?: string | null;
+  radio?: string | null;
+  angulo?: string | null;
+  termino?: string | null;
+  presion?: string | null;
+  coating?: string | null;
+  norm?: string | null;
+  length?: string | null;
+};
+
+export type ProductTechnicalSummaryResult = {
+  summary: string;
+  usedWebSearch: boolean;
+  sources?: Array<{
+    url: string;
+  }>;
+};
+
 
 export abstract class LanguageModelService {
 
@@ -124,4 +150,8 @@ export abstract class LanguageModelService {
   abstract extractBridaProperties(descripcion: string): Promise<BridaProperties | null>
 
   abstract extractTuboPlasticoProperties(descripcion: string): Promise<TuboPlasticoProperties | null>
+
+  abstract generateProductTechnicalSummary(input: ProductTechnicalSummaryInput): Promise<string>
+
+  abstract generateProductTechnicalSummaryEnriched(input: ProductTechnicalSummaryInput): Promise<ProductTechnicalSummaryResult>
 }

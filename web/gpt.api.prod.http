@@ -1,9 +1,104 @@
 
 
+@baseUrl = http://localhost:5500
+
 ### Find products
-POST https://tuvansa-gpt-71d64b682e77.herokuapp.com/api/gpt/match-product
+POST {{baseUrl}}/api/gpt/match-product
 Content-Type: application/json
 
 {
   "description":"tubo pvc 40 de 4\" "
+}
+
+### Products overview
+GET {{baseUrl}}/api/gpt/analysis/products/overview
+
+### Family distribution
+GET {{baseUrl}}/api/gpt/analysis/products/family-distribution?top=15
+
+### Prefix patterns
+GET {{baseUrl}}/api/gpt/analysis/products/prefix-patterns?top=20
+
+### First word analysis
+GET {{baseUrl}}/api/gpt/analysis/products/first-word-analysis?top=200
+
+### First word normalization report
+GET {{baseUrl}}/api/gpt/analysis/products/first-word-normalization-report?topReview=50
+
+### Category candidates
+GET {{baseUrl}}/api/gpt/analysis/products/category-candidates
+
+### Category conflicts
+GET {{baseUrl}}/api/gpt/analysis/products/category-conflicts?limit=100
+
+### Normalization preview
+GET {{baseUrl}}/api/gpt/analysis/products/normalization-preview?limit=20&offset=0
+
+### Normalization preview by bucket
+GET {{baseUrl}}/api/gpt/analysis/products/normalization-preview?limit=20&offset=0&categoryBucket=TUBO_PLASTICO
+
+### Normalized batch
+GET {{baseUrl}}/api/gpt/analysis/products/normalized-batch?limit=20&offset=0
+
+### Normalized batch by bucket
+GET {{baseUrl}}/api/gpt/analysis/products/normalized-batch?limit=20&offset=0&categoryBucket=VALVULA
+
+### Missing EAN batch
+GET {{baseUrl}}/api/gpt/analysis/products/missing-ean-batch?limit=20&offset=0
+
+### Missing EAN batch by bucket
+GET {{baseUrl}}/api/gpt/analysis/products/missing-ean-batch?limit=20&offset=0&categoryBucket=TUBO_ACERO
+
+### Missing EAN stored in Neon
+GET {{baseUrl}}/api/gpt/analysis/products/missing-ean-stored?limit=20&offset=0
+
+### Sync normalized batch to Neon
+POST {{baseUrl}}/api/gpt/analysis/products/sync-normalized-batch?limit=20&offset=0
+
+### Sync normalized batch to Neon by bucket
+POST {{baseUrl}}/api/gpt/analysis/products/sync-normalized-batch?limit=20&offset=0&categoryBucket=TUBO_PLASTICO
+
+### Sync all normalized products
+POST {{baseUrl}}/api/gpt/analysis/products/sync-normalized-all?limit=200&startOffset=0
+
+### Sync all normalized products by bucket
+POST {{baseUrl}}/api/gpt/analysis/products/sync-normalized-all?limit=200&startOffset=0&categoryBucket=VALVULA
+
+### Generate AI technical summaries for 10 steel pipe products
+POST {{baseUrl}}/api/gpt/analysis/products/generate-technical-summaries?limit=10&offset=0&categoryBucket=TUBO_ACERO&onlyMissing=true
+
+### Generate enriched AI technical summaries for 10 steel pipe products with web search
+POST {{baseUrl}}/api/gpt/analysis/products/generate-technical-summaries?limit=10&offset=0&categoryBucket=TUBO_ACERO&onlyMissing=false&mode=enriched
+
+
+### List product images
+GET http://localhost:5500/api/gpt/analysis/products/e467e5a3-927e-4790-9072-7551db3fcc89/images
+
+### Replace product images
+POST http://localhost:5500/api/gpt/analysis/products/e467e5a3-927e-4790-9072-7551db3fcc89/images
+Content-Type: application/json
+
+{
+  "images": [
+    {
+      "storage_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ9ZSnse6q1Qdywi4uGnfF-MJrf6SInTaqngaWD35dN8Q&s=10",
+      "file_name": "1.jpg",
+      "mime_type": "image/jpeg",
+      "alt_text": "Vista principal del producto",
+      "sort_order": 1,
+      "is_primary": true,
+      "image_type": "GALLERY",
+      "storage_provider": "INTERNAL"
+    },
+    {
+      "storage_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT8hIQyIbA6VMR8IY2sSsPSPr28y3Ck65HeHCLuaVNX4w&s=10",
+      "file_name": "2.jpg",
+      "mime_type": "image/jpeg",
+      "alt_text": "Vista lateral del producto",
+      "sort_order": 2,
+      "is_primary": false,
+      "image_type": "GALLERY",
+      "storage_provider": "INTERNAL"
+    }
+  ]
 }

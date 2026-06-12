@@ -19,6 +19,9 @@ import { detectProducto, extraerDesdeTubo, normalizarTubo } from "../../utils/no
 import { AnalyzeResult, buildAnalyzeResult } from "../../infraestructure/helpers/buildAnalyzeResult";
 
 import { MatchAllProductsUseCase } from "../../application/use-cases/match-all-products.use-case";
+import { ProscaiProductAnalysisService } from "../../infraestructure/services/proscai-product-analysis.service";
+import { PrismaProductCatalogService } from "../../infraestructure/services/prisma-product-catalog.service";
+import { error } from "console";
 
 /**
  * @swagger
@@ -41,116 +44,137 @@ export class GptController {
 
     private readonly languageModelService: LanguageModelService,
     private readonly sqlDataSource: SqlDataSource,
-    private readonly queryStoreService: QueryStoreService,
+    // private readonly queryStoreService: QueryStoreService,
     private readonly productRepository: ProductRepository,
     private readonly voyage: VoyageAIService,
-    private readonly pinecone: PineconeService
+    private readonly pinecone: PineconeService,
+    private readonly productAnalysisService: ProscaiProductAnalysisService,
+    private readonly prismaProductCatalogService: PrismaProductCatalogService
   ) { }
 
+  private readPositiveInt(value: unknown, fallback: number, max = 500): number {
+    const parsed = Number(value);
 
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
 
-  purchaseAnalisys = async (req: Request, res: Response) => {
-
-
-    try {
-
-      const [error, processPromptForSqlDto] = ProcessPromptForSqlDto.execute(req.body)
-
-      const { sql } = await new ProcessPromptForSqlUseCase(this.languageModelService)
-        .execute(processPromptForSqlDto, purchaseSchema)
-
-      const baseSql = sanitizeSQL(sql)
-
-      const queryId = await this.queryStoreService.create(baseSql)
-
-
-
-      // const [total] = await new ExecuteSqlUseCase(this.sqlDataSource).execute({ sql: countSql })
-      const { items, page, pageSize } = await this.sqlDataSource
-        .executeSql({ sql: baseSql })
-
-
-      res.json({
-        queryId,
-        items,
-        page,
-        pageSize,
-        // total,
-        // totalPages: paginationResult.totalPages
-
-      })
-
-      if (error) {
-        res.status(400).json({ error })
-        return
-      }
-
-
-
-    } catch (error) {
-      console.error('Error en GptController:', error);
-      res.status(500).json({ error: 'Error interno del servidor.' });
-    }
-
-
-
-
-
+    return Math.min(Math.floor(parsed), max);
   }
 
-  getStoredQuery = async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const pageSize = parseInt(req.query.pageSize as string) || 10;
-    const queryId = req.query.queryId;
+  private readBoolean(value: unknown, fallback: boolean): boolean {
+    if (typeof value !== 'string') return fallback;
 
-    const [error, paginationDto] = PaginationDto.execute({ page, pageSize, queryId })
+    const normalized = value.trim().toLowerCase();
 
-    if (error) {
-      res.status(400).json({ error })
-      return
-    }
+    if (['true', '1', 'yes', 'si'].includes(normalized)) return true;
+    if (['false', '0', 'no'].includes(normalized)) return false;
 
-    try {
-
-      const savedSql = await this.queryStoreService.get(paginationDto.queryId)
-
-      if (!savedSql) {
-
-        res.status(400).json({
-          error: 'query not found'
-        })
-        return
-      }
-
-      const { items, page, pageSize } = await this.sqlDataSource
-        .executeSql({
-          sql: savedSql,
-          page: paginationDto.page,
-          pageSize: paginationDto.pageSize
-        })
-
-
-
-      res.json({
-        queryId,
-        items,
-        page,
-        pageSize,
-        // total,
-        // totalPages: paginationResult.totalPages
-
-      })
-    } catch (error) {
-      console.error('Error al recuperar SQL paginado:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-
-
-
-
-
-
+    return fallback;
   }
+
+
+
+  // purchaseAnalisys = async (req: Request, res: Response) => {
+
+
+  //   try {
+
+  //     const [error, processPromptForSqlDto] = ProcessPromptForSqlDto.execute(req.body)
+
+  //     const { sql } = await new ProcessPromptForSqlUseCase(this.languageModelService)
+  //       .execute(processPromptForSqlDto, purchaseSchema)
+
+  //     const baseSql = sanitizeSQL(sql)
+
+  //     // const queryId = await this.queryStoreService.create(baseSql)
+
+
+
+  //     // const [total] = await new ExecuteSqlUseCase(this.sqlDataSource).execute({ sql: countSql })
+  //     const { items, page, pageSize } = await this.sqlDataSource
+  //       .executeSql({ sql: baseSql })
+
+
+  //     res.json({
+  //       queryId,
+  //       items,
+  //       page,
+  //       pageSize,
+  //       // total,
+  //       // totalPages: paginationResult.totalPages
+
+  //     })
+
+  //     if (error) {
+  //       res.status(400).json({ error })
+  //       return
+  //     }
+
+
+
+  //   } catch (error) {
+  //     console.error('Error en GptController:', error);
+  //     res.status(500).json({ error: 'Error interno del servidor.' });
+  //   }
+
+
+
+
+
+  // }
+
+  // getStoredQuery = async (req: Request, res: Response) => {
+  //   const page = parseInt(req.query.page as string) || 1;
+  //   const pageSize = parseInt(req.query.pageSize as string) || 10;
+  //   const queryId = req.query.queryId;
+
+  //   const [error, paginationDto] = PaginationDto.execute({ page, pageSize, queryId })
+
+  //   if (error) {
+  //     res.status(400).json({ error })
+  //     return
+  //   }
+
+  //   try {
+
+  //     const savedSql = await this.queryStoreService.get(paginationDto.queryId)
+
+  //     if (!savedSql) {
+
+  //       res.status(400).json({
+  //         error: 'query not found'
+  //       })
+  //       return
+  //     }
+
+  //     const { items, page, pageSize } = await this.sqlDataSource
+  //       .executeSql({
+  //         sql: savedSql,
+  //         page: paginationDto.page,
+  //         pageSize: paginationDto.pageSize
+  //       })
+
+
+
+  //     res.json({
+  //       queryId,
+  //       items,
+  //       page,
+  //       pageSize,
+  //       // total,
+  //       // totalPages: paginationResult.totalPages
+
+  //     })
+  //   } catch (error) {
+  //     console.error('Error al recuperar SQL paginado:', error);
+  //     res.status(500).json({ error: 'Error interno del servidor' });
+  //   }
+
+
+
+
+
+
+  // }
 
   upsertProducts = async (req: Request, res: Response) => {
 
@@ -317,7 +341,7 @@ export class GptController {
 
       const texContent = await new ProcessFileUseCase().execute(file)
 
-      
+
       const quotation = await this.languageModelService.extractQuotationData(texContent)
 
 
@@ -330,6 +354,388 @@ export class GptController {
 
 
   }
+
+  productsOverview = async (req: Request, res: Response) => {
+    try {
+      const result = await this.productAnalysisService.getOverview();
+      res.json(result);
+    } catch (error) {
+      console.error('Error analyzing products overview:', error);
+      res.status(500).json({ error: 'Error al analizar el resumen de productos.' });
+    }
+  }
+
+  productsFamilyDistribution = async (req: Request, res: Response) => {
+    try {
+      const top = this.readPositiveInt(req.query.top, 15, 50);
+      const result = await this.productAnalysisService.getFamilyDistribution(top);
+      res.json(result);
+    } catch (error) {
+      console.error('Error analyzing family distribution:', error);
+      res.status(500).json({ error: 'Error al analizar la distribución de familias.' });
+    }
+  }
+
+  productsPrefixPatterns = async (req: Request, res: Response) => {
+    try {
+      const top = this.readPositiveInt(req.query.top, 20, 100);
+      const result = await this.productAnalysisService.getPrefixPatterns(top);
+      res.json(result);
+    } catch (error) {
+      console.error('Error analyzing prefix patterns:', error);
+      res.status(500).json({ error: 'Error al analizar los prefijos de productos.' });
+    }
+  }
+
+  productsFirstWordAnalysis = async (req: Request, res: Response) => {
+    try {
+      const top = this.readPositiveInt(req.query.top, 200, 1000);
+      const result = await this.productAnalysisService.getFirstWordAnalysis(top);
+      res.json(result);
+    } catch (error) {
+      console.error('Error analyzing first word summary:', error);
+      res.status(500).json({ error: 'Error al analizar la primera palabra de las descripciones.' });
+    }
+  }
+
+  productsFirstWordNormalizationReport = async (req: Request, res: Response) => {
+    try {
+      const topReview = this.readPositiveInt(req.query.topReview, 50, 200);
+      const result = await this.productAnalysisService.getFirstWordNormalizationReport(topReview);
+      res.json(result);
+    } catch (error) {
+      console.error('Error generating first word normalization report:', error);
+      res.status(500).json({ error: 'Error al generar el reporte de normalización por primera palabra.' });
+    }
+  }
+
+  productsCategoryCandidates = async (req: Request, res: Response) => {
+    try {
+      const result = await this.productAnalysisService.getCategoryCandidates();
+      res.json(result);
+    } catch (error) {
+      console.error('Error analyzing category candidates:', error);
+      res.status(500).json({ error: 'Error al analizar las categorías candidatas.' });
+    }
+  }
+
+  productsCategoryConflicts = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 100, 300);
+      const result = await this.productAnalysisService.getCategoryConflicts(limit);
+      res.json(result);
+    } catch (error) {
+      console.error('Error analyzing category conflicts:', error);
+      res.status(500).json({ error: 'Error al analizar conflictos de categorización.' });
+    }
+  }
+
+  productsNormalizationPreview = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 50, 200);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+
+      const result = await this.productAnalysisService.getNormalizationPreview({
+        limit,
+        offset,
+        categoryBucket,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error generating normalization preview:', error);
+      res.status(500).json({ error: 'Error al generar la vista previa de normalización.' });
+    }
+  }
+
+  productsNormalizedBatch = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 50, 200);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+
+      const result = await this.productAnalysisService.getNormalizedProductsBatch({
+        limit,
+        offset,
+        categoryBucket,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error generating normalized products batch:', error);
+      res.status(500).json({ error: 'Error al generar el lote de productos normalizados.' });
+    }
+  }
+
+  productsMissingEanBatch = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 50, 200);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+
+      const result = await this.productAnalysisService.getMissingEanBatch({
+        limit,
+        offset,
+        categoryBucket,
+      });
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error generating missing EAN batch:', error);
+      res.status(500).json({ error: 'Error al generar el lote de productos sin EAN.' });
+    }
+  }
+
+  productsMissingEanStored = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 50, 500);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+
+      const result = await this.prismaProductCatalogService.listMissingEanProducts(limit, offset);
+
+      res.json(result);
+    } catch (error) {
+      console.error('Error listing stored missing EAN products:', error);
+      res.status(500).json({ error: 'Error al listar los productos guardados sin EAN.' });
+    }
+  }
+
+  syncNormalizedProductsBatch = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 50, 200);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+
+      const batch = await this.productAnalysisService.getNormalizedProductsBatch({
+        limit,
+        offset,
+        categoryBucket,
+      });
+
+      const result = await this.prismaProductCatalogService.upsertNormalizedProducts(batch);
+
+      res.json({
+        ...result,
+        limit,
+        offset,
+        categoryBucket: categoryBucket ?? null,
+      });
+    } catch (error) {
+      console.error('Error syncing normalized products batch:', error);
+      res.status(500).json({ error: 'Error al sincronizar el lote de productos normalizados.' });
+    }
+  }
+
+  syncAllNormalizedProducts = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 200, 1000);
+      const startOffset = this.readPositiveInt(req.query.startOffset, 0, 1000000);
+      const maxBatches = this.readPositiveInt(req.query.maxBatches, 10000, 100000);
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+
+      let offset = startOffset;
+      let batches = 0;
+      let processed = 0;
+      let skippedWithoutEanCount = 0;
+      let fetched = 0;
+      let finished = false;
+      const skippedWithoutEan: Array<{ source_icod: string; source_description?: string | null }> = [];
+
+      while (batches < maxBatches) {
+        const batch = await this.productAnalysisService.getNormalizedProductsBatch({
+          limit,
+          offset,
+          categoryBucket,
+        });
+
+        if (batch.length === 0) {
+          finished = true;
+          break;
+        }
+
+        fetched += batch.length;
+
+        const result = await this.prismaProductCatalogService.upsertNormalizedProducts(batch);
+        processed += result.processed;
+        skippedWithoutEanCount += result.skippedWithoutEanCount;
+        skippedWithoutEan.push(...result.skippedWithoutEan);
+
+        batches += 1;
+
+        if (batch.length < limit) {
+          finished = true;
+          break;
+        }
+
+        offset += limit;
+      }
+
+      res.json({
+        limit,
+        startOffset,
+        nextOffset: offset + (finished ? 0 : limit),
+        maxBatches,
+        categoryBucket: categoryBucket ?? null,
+        batches,
+        fetched,
+        processed,
+        skippedWithoutEanCount,
+        skippedWithoutEanSample: skippedWithoutEan.slice(0, 50),
+        finished,
+      });
+    } catch (error) {
+      console.error('Error syncing all normalized products:', error);
+      res.status(500).json({ error: 'Error al sincronizar todos los productos normalizados.' });
+    }
+  }
+
+  generateTechnicalSummariesBatch = async (req: Request, res: Response) => {
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 10, 50);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+      const onlyMissing = this.readBoolean(req.query.onlyMissing, true);
+      const mode = req.query.mode === 'enriched' ? 'enriched' : 'base';
+
+      const products = await this.prismaProductCatalogService.listProductsForTechnicalSummaryGeneration({
+        limit,
+        offset,
+        categoryBucket,
+        onlyMissing,
+      });
+
+      const generated = [];
+
+      for (const product of products) {
+        const summaryInput = {
+          productName: product.display_name ?? product.source_description ?? product.source_icod,
+          sourceDescription: product.source_description,
+          category: product.normalized_category,
+          subcategory: product.normalized_subcategory,
+          material: product.normalized_material,
+          diameter: product.normalized_diameter,
+          ced: product.normalized_ced,
+          costura: product.normalized_costura,
+          radio: product.normalized_radio,
+          angulo: product.normalized_angulo,
+          termino: product.normalized_termino,
+          presion: product.normalized_presion,
+          coating: product.normalized_coating,
+          norm: product.normalized_norm,
+          length: product.normalized_length,
+        };
+
+        const enrichedResult = mode === 'enriched'
+          ? await this.languageModelService.generateProductTechnicalSummaryEnriched(summaryInput)
+          : null;
+
+        const technicalSummary = enrichedResult?.summary
+          ?? await this.languageModelService.generateProductTechnicalSummary(summaryInput);
+
+        const updated = await this.prismaProductCatalogService.updateTechnicalSummary(product.id, technicalSummary);
+
+        generated.push({
+          ...updated,
+          usedWebSearch: enrichedResult?.usedWebSearch ?? false,
+          sources: enrichedResult?.sources ?? [],
+        });
+      }
+
+      res.json({
+        limit,
+        offset,
+        categoryBucket: categoryBucket ?? null,
+        onlyMissing,
+        mode,
+        fetched: products.length,
+        generated: generated.length,
+        items: generated,
+      });
+    } catch (error) {
+      console.error('Error generating technical summaries batch:', error);
+      res.status(500).json({ error: 'Error al generar technical_summary con IA.' });
+    }
+  }
+
+
+
+  productsImages = async (req: Request, res: Response) => {
+
+    try {
+      const { productId } = req.params
+
+      const result = await this.prismaProductCatalogService.listProductsImages(productId)
+
+      res.json({
+        productId,
+        total: result.length,
+        items: result
+      })
+
+    } catch (error) {
+
+      if (error instanceof Error) {
+
+        console.error('Error listing product images:', error.message);
+        res.status(500).json({ error: 'Error al listar las imagenes del producto.' });
+      }
+
+      res.status(500).json({ error: 'Error desconocido' });
+
+
+    }
+
+  }
+
+  replaceProductsImages = async (req: Request, res: Response) => {
+
+    try {
+
+      const { productId } = req.params
+      const { images } = req.body ?? {}
+
+      if (!Array.isArray(images)) {
+
+        res.status(400).json({
+          error: 'Debes de enviar un array de imagenes'
+        })
+
+        return
+      }
+
+      const normalizedImages = images.map((image: any) => ({
+        storage_url: String(image.storage_url ?? ''),
+        file_name: image.file_name ? String(image.file_name) : null,
+        mime_type: image.mime_type ? String(image.mime_type) : null,
+        alt_text: image.alt_text ? String(image.alt_text) : null,
+        sort_order: Number(image.sort_order),
+        is_primary: Boolean(image.is_primary),
+        image_type: image.image_type ? String(image.image_type) : null,
+        storage_provider: image.storage_provider ? String(image.storage_provider) : null,
+      }));
+
+      const result = await this.prismaProductCatalogService.replaceProductImages(productId, normalizedImages);
+
+      res.json({
+        productId,
+        total: result.length,
+        items: result,
+      });
+
+    } catch (error) {
+
+      console.error('Error replacing product images:', error);
+
+      res.status(400).json({
+        error: error?.message ?? 'Error al guardar las imagenes del producto.',
+      });
+
+    }
+
+  }
+
+
 
 
   private upsertAllProducts = async () => {

@@ -7,11 +7,13 @@ export const envs = {
   USER_MYSQL: get('USER_MYSQL').required().asString(),
   PASSWORD_MYSQL: get('PASSWORD_MYSQL').required().asString(),
   DB_MYSQL: get('DB_MYSQL').required().asString(),
+  DATABASE_URL: get('DATABASE_URL').asString(),
+  DIRECT_URL: get('DIRECT_URL').asString(),
   PORT: get('PORT').required().asString(),
-  DEEP_SEEK_API_KEY: get('DEEP_SEEK_API_KEY').asString(),
-  DEEP_SEEK_BASE_URL: get('DEEP_SEEK_BASE_URL').asString(),
-  REDIS_USER : get('REDIS_USER').required().asString(),
-  REDIS_PASSWORD : get('REDIS_PASSWORD').required().asString(),
+  // DEEP_SEEK_API_KEY: get('DEEP_SEEK_API_KEY').asString(),
+  // DEEP_SEEK_BASE_URL: get('DEEP_SEEK_BASE_URL').asString(),
+  // REDIS_USER : get('REDIS_USER').required().asString(),
+  // REDIS_PASSWORD : get('REDIS_PASSWORD').required().asString(),
   PINECONE_API_KEY: get('PINECONE_API_KEY').required().asString(),
   VOYAGEAI_API_KEY: get('VOYAGEAI_API_KEY').required().asString()
 }

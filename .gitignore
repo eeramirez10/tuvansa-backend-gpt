@@ -5,3 +5,4 @@ keys/
 dist/
 .env
 exports/
+/src/generated/prisma

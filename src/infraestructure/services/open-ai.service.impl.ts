@@ -4,7 +4,7 @@ import { ProcessPromptForSqlDto } from "../../domain/dtos/process-prompt-for-sql
 import { GptEntity } from "../../domain/entities/gpt.entity";
 import { QuotationEntity } from "../../domain/entities/quotation.entity";
 import { SummaryEntity } from "../../domain/entities/summary.entity";
-import { BridaProperties, LanguageModelService, PRODUCT_OPTIONS, ProductoTipo, TuboPlasticoProperties, ValvulaProperties } from "../../domain/services/language-model-service";
+import { BridaProperties, LanguageModelService, PRODUCT_OPTIONS, ProductoTipo, ProductTechnicalSummaryInput, ProductTechnicalSummaryResult, TuboPlasticoProperties, ValvulaProperties } from "../../domain/services/language-model-service";
 import { openAiConfig } from "../../config/open-ai-config";
 import { schema } from "../../data/schema";
 
@@ -168,7 +168,7 @@ Reglas:
     ];
 
     const response = await this.openai.chat.completions.create({
-     model: "gpt-5-chat-latest",
+     model: "gpt-4o-2024-11-20",
       temperature: 0.3,
      
       messages
@@ -847,6 +847,160 @@ Descripcion: "${descripcion}"
       console.error("Error al parsear respuesta de OpenAI:", data);
       return null;
     }
+  }
+
+  async generateProductTechnicalSummary(input: ProductTechnicalSummaryInput): Promise<string> {
+    const payload = {
+      nombre_producto: input.productName,
+      descripcion_fuente: input.sourceDescription ?? null,
+      categoria: input.category ?? null,
+      subcategoria: input.subcategory ?? null,
+      material: input.material ?? null,
+      diametro: input.diameter ?? null,
+      cedula: input.ced ?? null,
+      costura: input.costura ?? null,
+      radio: input.radio ?? null,
+      angulo: input.angulo ?? null,
+      terminacion: input.termino ?? null,
+      presion: input.presion ?? null,
+      recubrimiento: input.coating ?? null,
+      norma: input.norm ?? null,
+      longitud: input.length ?? null,
+    };
+
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-5.4-mini',
+      temperature: 0.2,
+      max_completion_tokens: 180,
+      messages: [
+        {
+          role: 'system',
+          content: `
+Eres un redactor tecnico para catalogos industriales.
+Tu tarea es escribir un technical_summary corto en espanol neutro.
+
+Reglas:
+- Responde solo con el resumen final, sin comillas, sin markdown y sin listas.
+- Usa 2 o 3 oraciones cortas.
+- Mantente entre 35 y 70 palabras.
+- No inventes datos faltantes.
+- Usa solo la informacion entregada.
+- No menciones precios, stock, sucursales, certificados inexistentes ni marcas si no vienen en los datos.
+- Prioriza: tipo de producto, material, diametro, cedula, costura/radio/angulo/terminacion, recubrimiento, norma y uso industrial general si aplica.
+- Si existe recubrimiento, mencionarlo explicitamente.
+- Si existe norma, incluirla en la ultima oracion con redaccion natural como "Cumple con ..." o "Fabricado bajo ...".
+- Si existen presion, costura o terminacion, integrarlas de forma tecnica sin sonar listado.
+- El tono debe parecer ficha de catalogo industrial, no texto de marketing.
+- Cuando aplique, mencionar una aplicacion general segura como conduccion, control de flujo o conexion de lineas industriales, pero sin inventar industrias especificas.
+- Si NO existe un dato, simplemente omitelo. Nunca digas frases como "sin norma", "no se indica", "no disponible", "no especificado" o equivalentes.
+- No uses aplicaciones ambiguas. Para TUBO prioriza "conduccion de fluidos"; para VALVULA prioriza "control y aislamiento de flujo"; para CODO/TEE/BRIDA/COPLE/REDUCCION prioriza "interconexion o cambio de direccion de lineas industriales".
+- No mezcles usos incompatibles; elige una aplicacion principal coherente con el tipo de producto.
+
+Ejemplo de estilo esperado:
+"Tuberia de acero al carbono con costura y recubrimiento FBE, diseñada para conduccion de fluidos en lineas industriales. Su configuracion ofrece resistencia para condiciones de operacion exigentes y ambientes corrosivos. Cumple con especificaciones API 5L / ASTM A53."
+          `.trim(),
+        },
+        {
+          role: 'user',
+          content: `Genera el technical_summary para este producto:\n${JSON.stringify(payload, null, 2)}`,
+        },
+      ],
+    });
+
+    return (response.choices[0]?.message?.content ?? '').trim().replace(/^"|"$/g, '');
+  }
+
+  async generateProductTechnicalSummaryEnriched(input: ProductTechnicalSummaryInput): Promise<ProductTechnicalSummaryResult> {
+    const payload = {
+      nombre_producto: input.productName,
+      descripcion_fuente: input.sourceDescription ?? null,
+      categoria: input.category ?? null,
+      subcategoria: input.subcategory ?? null,
+      material: input.material ?? null,
+      diametro: input.diameter ?? null,
+      cedula: input.ced ?? null,
+      costura: input.costura ?? null,
+      radio: input.radio ?? null,
+      angulo: input.angulo ?? null,
+      terminacion: input.termino ?? null,
+      presion: input.presion ?? null,
+      recubrimiento: input.coating ?? null,
+      norma: input.norm ?? null,
+      longitud: input.length ?? null,
+    };
+
+    const response = await this.openai.responses.create({
+      model: 'gpt-5.4-mini',
+      instructions: `
+Eres un redactor tecnico para catalogos industriales.
+Debes generar un technical_summary en espanol neutro usando primero los datos entregados y, solo como apoyo, contexto tecnico general encontrado en la web.
+
+Reglas:
+- Responde solo con el resumen final.
+- Usa 2 o 3 oraciones cortas.
+- Mantente entre 35 y 75 palabras.
+- Los datos internos del producto son la fuente de verdad.
+- La investigacion web solo puede ayudarte a interpretar contexto general, usos comunes, normas conocidas y significado de recubrimientos o colores tecnicos.
+- Nunca inventes un atributo especifico del SKU si no viene en los datos internos.
+- Si un dato no existe, omítelo; nunca digas que falta.
+- Si existe norma, mencionarla de forma natural.
+- Si existe recubrimiento y la web ayuda a interpretarlo de forma general, puedes enriquecer la redaccion.
+- Para tuberia, prioriza conduccion de fluidos; para valvulas, control y aislamiento de flujo; para conexiones, interconexion o cambio de direccion.
+- No menciones precios, stock, sucursales ni marcas si no vienen en los datos.
+      `.trim(),
+      input: `Genera un technical_summary enriquecido para este producto:\n${JSON.stringify(payload, null, 2)}`,
+      tools: [
+        {
+          type: 'web_search',
+          search_context_size: 'medium',
+          user_location: {
+            type: 'approximate',
+            city: 'Mexico City',
+            country: 'MX',
+            region: 'Ciudad de Mexico',
+            timezone: 'America/Mexico_City',
+          },
+        },
+      ],
+      tool_choice: 'required',
+      include: ['web_search_call.action.sources'] as any,
+    });
+
+    const sources = this.extractWebSearchSources(response);
+
+    return {
+      summary: (response.output_text ?? '').trim(),
+      usedWebSearch: this.detectUsedWebSearch(response, sources),
+      sources,
+    };
+  }
+
+  private extractWebSearchSources(response: any): Array<{ url: string }> {
+    const urls = new Set<string>();
+
+    for (const item of response?.output ?? []) {
+      if (item?.type !== 'web_search_call') {
+        continue;
+      }
+
+      const sources = item?.action?.sources ?? [];
+
+      for (const source of sources) {
+        if (source?.url) {
+          urls.add(source.url);
+        }
+      }
+    }
+
+    return Array.from(urls).map((url) => ({ url }));
+  }
+
+  private detectUsedWebSearch(response: any, sources: Array<{ url: string }>) {
+    if (sources.length > 0) {
+      return true;
+    }
+
+    return (response?.output ?? []).some((item: any) => item?.type === 'web_search_call');
   }
 
 

@@ -31,9 +31,64 @@ GET http://localhost:4500/api/gpt/upsert-products
 
 
 ### Inert products 
-POST http://localhost:4500/api/gpt/match-product
+POST http://localhost:5500/api/gpt/match-product
 Content-Type: application/json
 
 {
   "description":"Válvula check de acero bridada 10.5 kgs. De 152 mm. (6\" 150 lbs.), astm a216 gr.wcb mca walworth fig.5341f trim 8"
 }
+
+### Products overview
+GET http://localhost:5500/api/gpt/analysis/products/overview
+
+### Family distribution
+GET http://localhost:5500/api/gpt/analysis/products/family-distribution?top=15
+
+### Prefix patterns
+GET http://localhost:5500/api/gpt/analysis/products/prefix-patterns?top=20
+
+### First word analysis
+GET http://localhost:5500/api/gpt/analysis/products/first-word-analysis?top=200
+
+### First word normalization report
+GET http://localhost:5500/api/gpt/analysis/products/first-word-normalization-report?topReview=50
+
+### Category candidates
+GET http://localhost:5500/api/gpt/analysis/products/category-candidates
+
+### Category conflicts
+GET http://localhost:5500/api/gpt/analysis/products/category-conflicts?limit=100
+
+### Normalization preview
+GET http://localhost:5500/api/gpt/analysis/products/normalization-preview?limit=20&offset=0
+
+### Normalization preview by bucket
+GET http://localhost:5500/api/gpt/analysis/products/normalization-preview?limit=200&offset=0&categoryBucket=TUBO_ACERO
+
+### Normalized batch
+GET http://localhost:5500/api/gpt/analysis/products/normalized-batch?limit=20&offset=0
+
+### Normalized batch by bucket
+GET http://localhost:5500/api/gpt/analysis/products/normalized-batch?limit=20&offset=0&categoryBucket=TUBO_PLASTICO
+
+### Missing EAN batch
+GET http://localhost:5500/api/gpt/analysis/products/missing-ean-batch?limit=20&offset=0
+
+### Missing EAN batch by bucket
+GET http://localhost:5500/api/gpt/analysis/products/missing-ean-batch?limit=20&offset=0&categoryBucket=TUBO_ACERO
+
+### Missing EAN stored in Neon
+GET http://localhost:5500/api/gpt/analysis/products/missing-ean-stored?limit=20&offset=0
+
+### Sync normalized batch to Neon
+POST http://localhost:5500/api/gpt/analysis/products/sync-normalized-batch?limit=20&offset=0
+
+### Sync normalized batch to Neon by bucket
+
+POST http://localhost:5500/api/gpt/analysis/products/sync-normalized-batch?limit=20&offset=0&categoryBucket=VALVULA
+
+### Sync all normalized products
+POST http://localhost:5500/api/gpt/analysis/products/sync-normalized-all?limit=200&startOffset=0
+
+### Sync all normalized products by bucket
+POST http://localhost:5500/api/gpt/analysis/products/sync-normalized-all?limit=200&startOffset=0&categoryBucket=TUBO_ACERO
