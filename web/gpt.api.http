@@ -92,3 +92,7 @@ POST http://localhost:5500/api/gpt/analysis/products/sync-normalized-all?limit=2
 
 ### Sync all normalized products by bucket
 POST http://localhost:5500/api/gpt/analysis/products/sync-normalized-all?limit=200&startOffset=0&categoryBucket=TUBO_ACERO
+
+
+### Product detail
+GET http://localhost:5500/api/gpt/analysis/products/e467e5a3-927e-4790-9072-7551db3fcc89/detail

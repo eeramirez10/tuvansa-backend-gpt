@@ -1,11 +1,14 @@
 import { envs } from '../../config/envs';
 import { Prisma, PrismaClient } from '../../generated/prisma/client';
+import { ProductMapper } from '../mappers/productMapper';
 
 type TechnicalSpecRecord = {
   label: string;
   value: string;
   standard?: string | null;
   sort_order: number;
+
+
 };
 
 type TechnicalSummaryCandidate = {
@@ -43,6 +46,9 @@ type ProductImageInput = {
 
 type NormalizedCatalogRecord = Prisma.ProductNormalizedUncheckedCreateInput & {
   technical_specs?: TechnicalSpecRecord[];
+  technical_summary_source?: string | null;
+  technical_summary_generated_at?: Date | null;
+
 };
 type MissingEanRecord = {
   source_system: string;
@@ -149,6 +155,8 @@ export class PrismaProductCatalogService {
           image_prompt,
           image_negative_prompt,
           technical_summary,
+           technical_summary_source,
+          technical_summary_generated_at,
           normalized_norm,
           normalized_coating,
           normalized_length,
@@ -210,6 +218,8 @@ export class PrismaProductCatalogService {
           ${record.image_prompt ?? null},
           ${record.image_negative_prompt ?? null},
           ${record.technical_summary ?? null},
+          ${record.technical_summary_source ?? null},
+          ${record.technical_summary_generated_at ?? null},
           ${record.normalized_norm ?? null},
           ${record.normalized_coating ?? null},
           ${record.normalized_length ?? null},
@@ -270,6 +280,8 @@ export class PrismaProductCatalogService {
           image_prompt = EXCLUDED.image_prompt,
           image_negative_prompt = EXCLUDED.image_negative_prompt,
           technical_summary = EXCLUDED.technical_summary,
+            technical_summary_source = EXCLUDED.technical_summary_source,
+          technical_summary_generated_at = EXCLUDED.technical_summary_generated_at,
           normalized_norm = EXCLUDED.normalized_norm,
           normalized_coating = EXCLUDED.normalized_coating,
           normalized_length = EXCLUDED.normalized_length,
@@ -472,17 +484,82 @@ export class PrismaProductCatalogService {
     });
   }
 
-  async updateTechnicalSummary(productId: string, technicalSummary: string) {
+  async getTechnicalSumaryStatus(params: { limit?: number, offset?: number, categoryBucket?: string }) {
+    const limit = Math.max(1, Math.min(params.limit ?? 20, 100));
+    const offset = Math.max(0, params.offset ?? 0);
+    const categoryBucket = params.categoryBucket;
+
+    const where = {
+      ...(categoryBucket ? { detection_bucket: categoryBucket } : {})
+    }
+
+    const [total, pipelineCount, aiBaseCount, aiEnrichedCount, pendingSample] = await Promise.all([
+      this.prisma.productNormalized.count({ where }),
+      this.prisma.productNormalized.count({
+        where: {
+          ...where,
+          technical_summary_source: 'PIPELINE',
+        },
+      }),
+      this.prisma.productNormalized.count({
+        where: {
+          ...where,
+          technical_summary_source: 'AI_BASE',
+        },
+      }),
+      this.prisma.productNormalized.count({
+        where: {
+          ...where,
+          technical_summary_source: 'AI_ENRICHED',
+        },
+      }),
+      this.prisma.productNormalized.findMany({
+        where: {
+          ...where,
+          technical_summary_source: 'PIPELINE',
+        },
+        orderBy: [{ updated_at: 'desc' }, { source_icod: 'asc' }],
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          source_icod: true,
+          source_ean: true,
+          display_name: true,
+          detection_bucket: true,
+          technical_summary_source: true,
+          technical_summary_generated_at: true,
+          updated_at: true,
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      pipelineCount,
+      aiBaseCount,
+      aiEnrichedCount,
+      pendingCount: pipelineCount,
+      pendingSample,
+    };
+
+  }
+
+  async updateTechnicalSummary(productId: string, technicalSummary: string, source: 'AI_BASE' | 'AI_ENRICHED') {
     return this.prisma.productNormalized.update({
       where: { id: productId },
       data: {
         technical_summary: technicalSummary,
+        technical_summary_source: source,
+        technical_summary_generated_at: new Date(),
         updated_at: new Date(),
       },
       select: {
         id: true,
         source_icod: true,
         technical_summary: true,
+        technical_summary_source: true,
+        technical_summary_generated_at: true,
       },
     });
   }
@@ -596,6 +673,70 @@ export class PrismaProductCatalogService {
 
     return await this.listProductsImages(productId)
   }
+
+
+  async getProductDetail(productId: string) {
+
+    const product = await this.prisma.productNormalized.findUnique({
+      where: {
+        id: productId
+      },
+      include: {
+        technical_specs: {
+          orderBy: {
+            sort_order: 'asc'
+          },
+          select: {
+            id: true,
+            label: true,
+            value: true,
+            standard: true,
+            sort_order: true
+          }
+        },
+        images: {
+          orderBy: [
+            { sort_order: 'asc' },
+            { created_at: 'asc' }
+          ],
+          select: {
+            id: true,
+            storage_url: true,
+            alt_text: true,
+            sort_order: true,
+            is_primary: true,
+            image_type: true,
+            width: true,
+            height: true
+          }
+        },
+
+      }
+    })
+
+    if (!product) {
+      throw new Error('Porducto no encontrado')
+    }
+
+    const quickSpecs = [
+      { label: 'MATERIAL', value: product.normalized_material },
+      { label: 'NORMA', value: product.normalized_norm },
+      { label: 'RECUBRIMIENTO', value: product.normalized_coating },
+      { label: 'LONGITUD', value: product.normalized_length }
+    ]
+
+    const filteredQuickSpecs = quickSpecs.filter((quickSpec) => quickSpec.value && quickSpec?.value.trim() !== '')
+
+    return ProductMapper.toEntity({
+      ...product,
+      quickSpecs: filteredQuickSpecs
+    })
+
+
+
+  }
+
+
 
   private async deleteMissingEanRecord(sourceSystem: string, sourceIcod: string) {
     await this.prisma.$executeRaw`

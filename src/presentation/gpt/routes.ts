@@ -51,7 +51,9 @@ export class GptRoutes {
       syncAllNormalizedProducts,
       generateTechnicalSummariesBatch,
       productsImages,
-      replaceProductsImages
+      replaceProductsImages,
+      productDetail,
+      technicalSummaryStatus
     }
       = new GptController(
         openAiService,
@@ -69,7 +71,7 @@ export class GptRoutes {
     // router.get('/sql/query', getStoredQuery)
     router.get('/upsert-products', upsertProducts)
     router.post('/match-product', matchProduct)
-    router.post('/extract-items-quote',upload.single('quote'),transformQuote )
+    router.post('/extract-items-quote', upload.single('quote'), transformQuote)
     router.get('/analysis/products/overview', productsOverview)
     router.get('/analysis/products/family-distribution', productsFamilyDistribution)
     router.get('/analysis/products/prefix-patterns', productsPrefixPatterns)
@@ -85,7 +87,10 @@ export class GptRoutes {
     router.post('/analysis/products/sync-normalized-all', syncAllNormalizedProducts)
     router.post('/analysis/products/generate-technical-summaries', generateTechnicalSummariesBatch)
     router.get('/analysis/products/:productId/images', productsImages)
-    router.post('/analysis/products/:productId/images',replaceProductsImages)
+    router.post('/analysis/products/:productId/images', replaceProductsImages)
+    router.get('/analysis/products/:productId/detail', productDetail)
+
+    router.get('/analysis/products/technical-summary-status', technicalSummaryStatus);
 
     return router
   }

@@ -944,6 +944,8 @@ classified AS (
       image_prompt: imagePrompt,
       image_negative_prompt: imageNegativePrompt,
       technical_summary: technicalSummary,
+      technical_summary_source: 'PIPELINE' as const,
+      technical_summary_generated_at: new Date(),
       normalized_norm: quickSpecs.norm,
       normalized_coating: quickSpecs.coating,
       normalized_length: quickSpecs.length,

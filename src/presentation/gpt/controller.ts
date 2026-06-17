@@ -21,7 +21,7 @@ import { AnalyzeResult, buildAnalyzeResult } from "../../infraestructure/helpers
 import { MatchAllProductsUseCase } from "../../application/use-cases/match-all-products.use-case";
 import { ProscaiProductAnalysisService } from "../../infraestructure/services/proscai-product-analysis.service";
 import { PrismaProductCatalogService } from "../../infraestructure/services/prisma-product-catalog.service";
-import { error } from "console";
+
 
 /**
  * @swagger
@@ -633,7 +633,9 @@ export class GptController {
         const technicalSummary = enrichedResult?.summary
           ?? await this.languageModelService.generateProductTechnicalSummary(summaryInput);
 
-        const updated = await this.prismaProductCatalogService.updateTechnicalSummary(product.id, technicalSummary);
+        const summarySource = mode === 'enriched' ? 'AI_ENRICHED' : 'AI_BASE';
+
+        const updated = await this.prismaProductCatalogService.updateTechnicalSummary(product.id, technicalSummary, summarySource);
 
         generated.push({
           ...updated,
@@ -656,6 +658,36 @@ export class GptController {
       console.error('Error generating technical summaries batch:', error);
       res.status(500).json({ error: 'Error al generar technical_summary con IA.' });
     }
+  }
+
+
+  technicalSummaryStatus = async (req: Request, res: Response) => {
+
+
+
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 20, 1000)
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000)
+
+      const categoryBucket = typeof req.query.categoryBucket === 'string' ? req.query.categoryBucket : undefined;
+
+      const result = await this.prismaProductCatalogService.getTechnicalSumaryStatus({
+        limit,
+        offset,
+        categoryBucket
+      });
+
+      res.json({
+        limit,
+        offset,
+        categoryBucket: categoryBucket ?? null,
+        ...result
+      })
+    } catch (error) {
+      console.error('Error getting technical summary status:', error);
+      res.status(500).json({ error: 'Error al obtener el estado de technical_summary.' });
+    }
+
   }
 
 
@@ -731,6 +763,30 @@ export class GptController {
         error: error?.message ?? 'Error al guardar las imagenes del producto.',
       });
 
+    }
+
+  }
+
+  productDetail = async (req: Request, res: Response) => {
+
+
+    try {
+      const { productId } = req.params
+
+      const result = await this.prismaProductCatalogService.getProductDetail(productId)
+
+      return res.json(result)
+    } catch (error) {
+      console.error('Error getting product detail:', error);
+
+      const message = error?.message ?? 'Error al obtener el detalle del producto.';
+
+      if (message === 'Producto no encontrado.') {
+        res.status(404).json({ error: message });
+        return;
+      }
+
+      res.status(500).json({ error: message });
     }
 
   }

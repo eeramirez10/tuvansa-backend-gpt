@@ -15,73 +15,81 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+enum TechnicalSummarySource {
+  PIPELINE
+  AI_BASE
+  AI_ENRICHED
+}
+
 model ProductNormalized {
-  id                           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  source_system                String                 @default("PROSCAI")
-  source_country_code          String                 @default("01") @db.Char(2)
-  source_icod                  String
-  source_ean                   String
-  source_description1          String?
-  source_description2          String?
-  source_description           String?
-  raw_fam2                     String?
-  raw_fam3                     String?
-  raw_fam4                     String?
-  raw_fam5                     String?
-  raw_fam7                     String?
-  raw_fam8                     String?
-  raw_famc                     String?
-  raw_unidad                   String?
-  detection_bucket             String
-  detection_source             String
-  detection_first_word         String?
-  detection_first_word_product String?
-  detection_confidence         Decimal?               @db.Decimal(5, 2)
-  detection_notes              String?
-  normalized_product           String
-  normalized_category          String?
-  normalized_subcategory       String?
-  normalized_material          String?
-  normalized_tipo              String?
-  normalized_subtipo           String?
-  normalized_diameter          String?
-  normalized_ced               String?
-  normalized_costura           String?
-  normalized_termino           String?
-  normalized_acabado           String?
-  normalized_radio             String?
-  normalized_angulo            String?
-  normalized_presion           String?
-  normalized_grado             String?
-  normalized_figura            String?
-  visual_material              String?
-  visual_color                 String?
-  visual_finish                String?
-  visual_shape                 String?
-  visual_connection_type       String?
-  visual_special_features      String?
-  image_prompt                 String?
-  image_negative_prompt        String?
-  technical_summary            String?
-  normalized_norm              String?
-  normalized_coating           String?
-  normalized_length            String?
-  display_name                 String?
-  display_description          String?
-  search_text                  String?
-  is_active                    Boolean                @default(true)
-  is_searchable                Boolean                @default(true)
-  requires_manual_review       Boolean                @default(false)
-  manual_review_reason         String?
-  pinecone_namespace           String?
-  pinecone_vector_id           String?
-  pinecone_last_upsert_at      DateTime?              @db.Timestamptz
-  erp_last_seen_at             DateTime?              @db.Timestamptz
-  normalized_at                DateTime?              @db.Timestamptz
-  created_at                   DateTime               @default(now()) @db.Timestamptz
-  updated_at                   DateTime               @updatedAt @db.Timestamptz
-  images                       ProductImage[]
-  technical_specs              ProductTechnicalSpec[]
+  id                             String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source_system                  String                  @default("PROSCAI")
+  source_country_code            String                  @default("01") @db.Char(2)
+  source_icod                    String
+  source_ean                     String
+  source_description1            String?
+  source_description2            String?
+  source_description             String?
+  raw_fam2                       String?
+  raw_fam3                       String?
+  raw_fam4                       String?
+  raw_fam5                       String?
+  raw_fam7                       String?
+  raw_fam8                       String?
+  raw_famc                       String?
+  raw_unidad                     String?
+  detection_bucket               String
+  detection_source               String
+  detection_first_word           String?
+  detection_first_word_product   String?
+  detection_confidence           Decimal?                @db.Decimal(5, 2)
+  detection_notes                String?
+  normalized_product             String
+  normalized_category            String?
+  normalized_subcategory         String?
+  normalized_material            String?
+  normalized_tipo                String?
+  normalized_subtipo             String?
+  normalized_diameter            String?
+  normalized_ced                 String?
+  normalized_costura             String?
+  normalized_termino             String?
+  normalized_acabado             String?
+  normalized_radio               String?
+  normalized_angulo              String?
+  normalized_presion             String?
+  normalized_grado               String?
+  normalized_figura              String?
+  visual_material                String?
+  visual_color                   String?
+  visual_finish                  String?
+  visual_shape                   String?
+  visual_connection_type         String?
+  visual_special_features        String?
+  image_prompt                   String?
+  image_negative_prompt          String?
+  technical_summary              String?
+  technical_summary_source       TechnicalSummarySource?
+  technical_summary_generated_at DateTime?               @db.Timestamptz
+  normalized_norm                String?
+  normalized_coating             String?
+  normalized_length              String?
+  display_name                   String?
+  display_description            String?
+  search_text                    String?
+  is_active                      Boolean                 @default(true)
+  is_searchable                  Boolean                 @default(true)
+  requires_manual_review         Boolean                 @default(false)
+  manual_review_reason           String?
+  pinecone_namespace             String?
+  pinecone_vector_id             String?
+  pinecone_last_upsert_at        DateTime?               @db.Timestamptz
+  erp_last_seen_at               DateTime?               @db.Timestamptz
+  normalized_at                  DateTime?               @db.Timestamptz
+  created_at                     DateTime                @default(now()) @db.Timestamptz
+  updated_at                     DateTime                @updatedAt @db.Timestamptz
+  images                         ProductImage[]
+  technical_specs                ProductTechnicalSpec[]
 
   @@unique([source_system, source_icod], map: "uq_products_normalized_source")
   @@index([source_ean], map: "idx_products_normalized_ean")
