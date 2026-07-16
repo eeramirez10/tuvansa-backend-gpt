@@ -113,3 +113,31 @@ GET http://localhost:5500/api/gpt/analysis/products/technical-summary-status
 
 ### Technical summary status by bucket
 GET http://localhost:5500/api/gpt/analysis/products/technical-summary-status?categoryBucket=TUBO_ACERO&limit=20&offset=0
+
+### Vector catalog v2 preview (read-only)
+GET {{baseUrl}}/api/vector-catalog/preview?limit=10
+
+### Vector catalog v2 preview - tuberia only (read-only)
+GET {{baseUrl}}/api/vector-catalog/preview?scope=TUBERIA&limit=10
+
+### Vector catalog v2 preview - steel pipes only (read-only)
+GET {{baseUrl}}/api/vector-catalog/preview?scope=TUBO_ACERO&limit=10
+
+### Vector catalog v2 index one steel pipe (writes only to proscai-catalog-v2)
+POST {{baseUrl}}/api/vector-catalog/index-test
+Content-Type: application/json
+
+{
+  "ean": "TCC1/240"
+}
+
+### Index all eligible steel pipes in the v2 catalog index
+POST {{baseUrl}}/api/vector-catalog/index
+Content-Type: application/json
+
+{
+  "scope": "TUBO_ACERO"
+}
+
+### Check the background index job
+GET {{baseUrl}}/api/vector-catalog/index/status

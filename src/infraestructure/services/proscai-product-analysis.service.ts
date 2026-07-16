@@ -1,6 +1,8 @@
 import mysql from 'mysql2/promise';
 
 import { envs } from '../../config/envs';
+import { ProscaiCatalogProduct } from '../../domain/entities/catalog-vector.entity';
+import { ProscaiCatalogSourceRow } from '../datasource/proscai-catalog.datasource';
 import {
   buscarCostura,
   cleanDiameter,
@@ -18,7 +20,7 @@ import {
   sanitizeForDB,
   verifyData,
 } from '../helpers/sanitizeSql';
-import { detectProducto, extraerDesdeTubo, normalizarTubo } from '../../utils/normalize-text';
+import { detectProducto } from '../../utils/normalize-text';
 
 type QueryRow = Record<string, any>;
 type TechnicalSpecRecord = {
@@ -52,6 +54,96 @@ export class ProscaiProductAnalysisService {
     'TUBO_PLASTICO',
     'GENERAL',
   ]);
+
+  /**
+   * Reuses the catalog normalization already used to build products_normalized.
+   * Pinecone v2 must consume this result instead of maintaining another rule set.
+   */
+  public normalizeCatalogProduct(source: ProscaiCatalogSourceRow): ProscaiCatalogProduct {
+    const sourceDescription = source.description2.trim() || source.description1.trim();
+    const categoryBucket = this.resolveCatalogCategoryBucket(source, sourceDescription);
+    const preview = this.mapPreviewRow({
+      ICOD: source.icod,
+      ean: source.ean,
+      description1: source.description1,
+      description2: source.description2,
+      source_description: sourceDescription,
+      category_bucket: categoryBucket,
+      fam2: source.fam2,
+      fam3: source.fam3,
+      fam4: source.fam4,
+      fam5: source.fam5,
+      fam7: source.fam7,
+      fam8: source.fam8,
+      famc: source.famc,
+      unidad: source.unit,
+    }) as { categoryBucket: string; normalized: QueryRow };
+
+    const normalized = preview.normalized;
+    const categoryInfo = this.resolveCategoryInfo(preview.categoryBucket, normalized);
+
+    return {
+      ean: this.requireCatalogValue(source.ean, 'EAN'),
+      icod: this.requireCatalogValue(source.icod, 'ICOD'),
+      originalDescription: sourceDescription,
+      normalizedDescription: this.readCatalogValue(normalized.description) ?? sourceDescription,
+      category: categoryInfo.category,
+      subcategory: categoryInfo.subcategory,
+      categoryBucket: preview.categoryBucket,
+      product: this.readCatalogValue(normalized.product),
+      tipo: this.readCatalogValue(normalized.tipo),
+      subtipo: this.readCatalogValue(normalized.subtipo),
+      material: this.readCatalogValue(normalized.material),
+      diameter: this.readCatalogValue(normalized.diameter),
+      ced: this.readCatalogValue(normalized.ced),
+      termino: this.readCatalogValue(normalized.termino),
+      costura: this.readCatalogValue(normalized.costura),
+      acabado: this.readCatalogValue(normalized.acabado),
+      figura: this.readCatalogValue(normalized.figura),
+      radio: this.readCatalogValue(normalized.radio),
+      angulo: this.readCatalogValue(normalized.angulo),
+      grado: this.readCatalogValue(normalized.grado),
+      presion: this.readCatalogValue(normalized.presion),
+      unit: this.readCatalogValue(source.unit),
+      isActive: true,
+    };
+  }
+
+  private resolveCatalogCategoryBucket(
+    source: ProscaiCatalogSourceRow,
+    sourceDescription: string,
+  ): string {
+    const ean = source.ean.trim().toUpperCase();
+    const description = sourceDescription.trim().toUpperCase();
+    const material = source.fam4.trim().toUpperCase();
+
+    if (ean.startsWith('V')) return 'VALVULA';
+    if (ean.startsWith('TSC') || ean.startsWith('TCC')) return 'TUBO_ACERO';
+    if (description.startsWith('CODO')) return 'CODO';
+    if (description.startsWith('BRIDA')) return 'BRIDA';
+    if (description.startsWith('TUB') && this.plasticMaterials.includes(material)) {
+      return 'TUBO_PLASTICO';
+    }
+
+    return 'GENERAL';
+  }
+
+  private requireCatalogValue(value: string, fieldName: string): string {
+    const normalized = value.trim();
+    if (!normalized) {
+      throw new Error(`Producto Proscai sin ${fieldName}.`);
+    }
+    return normalized;
+  }
+
+  private readCatalogValue(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim();
+    if (!normalized || normalized.toUpperCase() === 'NO ASIGNADO') {
+      return undefined;
+    }
+    return normalized;
+  }
 
   private get plasticMaterialsSql(): string {
     return this.plasticMaterials.map((material) => `'${material}'`).join(',');
@@ -795,20 +887,37 @@ classified AS (
     }
 
     if (categoryBucket === 'TUBO_ACERO') {
-      const ced = row.fam7 === 'NO ASIGNADO' || !row.fam7 ? '' : row.fam7;
-      const description = `${normalizarTubo(row.fam2)} de ${row.fam4} (${row.fam3}) (${row.fam8} ${ced}) en ${row.unidad} ${row.fam5 === 'NO ASIGNADO' ? '' : row.fam5} ${row.famc === 'NO ASIGNADO' ? '' : row.famc}`;
+      const material = this.resolveSteelMaterial(row.fam4, sourceDescription);
+      const diameter = this.resolveSteelDiameter(row.fam8, sourceDescription);
+      const ced = verifyData(row.fam7) ?? (extraerCedulaDeDescripcion(sourceDescription) ?? '');
+      const costura = buscarCostura(normalizeValue(row.fam3) ?? '')
+        ?? buscarCostura(normalizeValue(sourceDescription) ?? '')
+        ?? '';
+      const termino = verifyData(row.fam5) ?? '';
+      const acabado = verifyData(row.famc) ?? '';
+      const description = this.buildSteelPipeDescription({
+        material,
+        diameter,
+        ced,
+        costura,
+        termino,
+        acabado,
+        unit: verifyData(row.unidad) ?? '',
+        fallback: sourceDescription,
+      });
 
       return {
         categoryBucket,
         raw,
         normalized: {
           id: row.ean,
-          product: normalizeValue(normalizarTubo(row.fam2)),
-          costura: row.fam3 ? normalizeValue(row.fam3) : '',
-          material: row.fam4 ? normalizeValue(row.fam4) : '',
-          diameter: row.fam8 ?? '',
-          ced: row.fam7 ?? '',
-          acabado: row.famc ?? '',
+          product: 'TUBO',
+          costura,
+          material,
+          diameter,
+          ced,
+          termino,
+          acabado,
           originalDescription: sourceDescription,
           ean: row.ean,
           description: normalizeValue(description),
@@ -960,6 +1069,61 @@ classified AS (
       normalized_at: new Date(),
       technical_specs: technicalSpecs,
     };
+  }
+
+  private resolveSteelMaterial(familyMaterial: string, description: string): string {
+    const normalizedDescription = normalizeValue(description) ?? '';
+
+    if (/\b(A\/INOX|ACERO\s+INOX(?:IDABLE)?)\b/.test(normalizedDescription)) {
+      return 'ACERO INOXIDABLE';
+    }
+
+    if (/\b(A\/CARBON|ACERO\s+AL\s+CARBON)\b/.test(normalizedDescription)) {
+      return 'ACERO AL CARBON';
+    }
+
+    return verifyData(familyMaterial) ? (normalizeValue(familyMaterial) ?? '') : '';
+  }
+
+  private resolveSteelDiameter(familyDiameter: string, description: string): string {
+    const assignedDiameter = verifyData(familyDiameter);
+    if (assignedDiameter) {
+      return cleanDiameter(assignedDiameter);
+    }
+
+    const inchMatch = description.match(/\b(\d+(?:\s+\d+\/\d+|\/\d+)?)\s*["¨]/);
+    if (!inchMatch?.[1]) return '';
+
+    return inchMatch[1].replace(/\s+/g, ' ').trim();
+  }
+
+  private buildSteelPipeDescription(values: {
+    material: string;
+    diameter: string;
+    ced: string;
+    costura: string;
+    termino: string;
+    acabado: string;
+    unit: string;
+    fallback: string;
+  }): string {
+    const technicalParts = [
+      'TUBO',
+      values.material ? `DE ${values.material}` : '',
+      values.costura ? `(${values.costura})` : '',
+      values.diameter || values.ced
+        ? `(${[values.diameter, values.ced].filter(Boolean).join(' ')})`
+        : '',
+      values.unit ? `EN ${values.unit}` : '',
+      values.termino,
+      values.acabado,
+    ].filter(Boolean);
+
+    if (technicalParts.length <= 2) {
+      return normalizeValue(values.fallback) ?? '';
+    }
+
+    return normalizeValue(technicalParts.join(' ')) ?? '';
   }
 
   private resolveCategoryInfo(categoryBucket: string, normalized: QueryRow) {

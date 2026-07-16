@@ -6,3 +6,4 @@ dist/
 .env
 exports/
 /src/generated/prisma
+.DS_Store

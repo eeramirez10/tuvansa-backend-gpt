@@ -1,0 +1,63 @@
+@baseUrl = http://localhost:5500/api
+
+### Construir o consultar el reporte de la proyeccion canonica
+GET {{baseUrl}}/catalog-variants/report
+
+### Forzar una nueva lectura de Proscai despues de corregir registros
+GET {{baseUrl}}/catalog-variants/report?refresh=true
+
+### Buscar todas las variantes detectadas para un EAN
+GET {{baseUrl}}/catalog-variants/variants?ean=TSC480&includeSourceRecords=true
+
+### Variantes que necesitan revision y estan presentes en Mexico
+GET {{baseUrl}}/catalog-variants/variants?status=REVIEW&branchCode=01&limit=20&offset=0&includeSourceRecords=false
+
+### EAN separados en mas de una variante tecnica
+GET {{baseUrl}}/catalog-variants/variants?reviewReason=EAN_HAS_MULTIPLE_VARIANTS&limit=20&offset=0
+
+### Variantes sin material normalizado
+GET {{baseUrl}}/catalog-variants/variants?warning=MISSING_MATERIAL&limit=20&offset=0
+
+### Consultar una variante por su variantId
+GET {{baseUrl}}/catalog-variants/variants/VARIANT_ID
+
+### Registros sin EAN enviados a cuarentena
+GET {{baseUrl}}/catalog-variants/quarantine?limit=20&offset=0
+
+### Registros sin EAN de Cancun
+GET {{baseUrl}}/catalog-variants/quarantine?branchCode=06&limit=20&offset=0
+
+### Previsualizar documentos vectoriales sin llamar a Voyage ni Pinecone
+GET {{baseUrl}}/catalog-variants/vector-preview?ean=TSC480
+
+### Dry-run de cinco variantes, compara hashes pero no modifica Pinecone
+POST {{baseUrl}}/catalog-variants/sync
+Content-Type: application/json
+
+{
+  "maxVariants": 5,
+  "dryRun": true,
+  "deleteStale": false
+}
+
+### Carga real de cinco variantes para validar Voyage y el namespace
+POST {{baseUrl}}/catalog-variants/sync
+Content-Type: application/json
+
+{
+  "maxVariants": 5,
+  "dryRun": false,
+  "deleteStale": false
+}
+
+### Sincronizacion completa y reconciliacion de eliminados
+POST {{baseUrl}}/catalog-variants/sync
+Content-Type: application/json
+
+{
+  "dryRun": false,
+  "deleteStale": true
+}
+
+### Estado del trabajo de sincronizacion
+GET {{baseUrl}}/catalog-variants/sync/status

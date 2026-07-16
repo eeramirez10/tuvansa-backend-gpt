@@ -1,0 +1,103 @@
+@baseUrl = http://localhost:5500
+
+### Semantic search: steel pipe without exact filters
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "TUBO DE ACERO AL CARBON CON COSTURA, CEDULA 10, 4 pulgadas metros",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Semantic search: exact technical filters
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "tubo de acero para conduccion de media pulgada",
+  "topK": 10,
+  "filters": {
+    "material": "acero al carbon",
+    "diameter": "1/2",
+    "ced": "40",
+    "costura": "con costura"
+  }
+}
+
+### Semantic search: carbon steel pipe with schedule 40
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "tubo negro cedula 40 con costura de seis pulgadas",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Fitting ranking: copper threaded elbow with female thread
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "codo de cobre roscado de 1/2 90 grados cuerda interior pieza",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Fitting ranking: concentric PVC reducer
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "reduccion concentrica de PVC de 2 pulgadas",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Valve ranking: flanged carbon steel ball valve
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "valvula de bola de acero al carbon de 2 pulgadas clase 150 bridada con palanca",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Valve ranking: wafer butterfly valve with gearbox
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "valvula mariposa wafer de 6 pulgadas con engranaje",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Flange ranking: weld neck raised-face flange
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "brida cuello soldable de acero al carbon de 4 pulgadas clase 150 cara RF ASTM A105",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
+### Flange ranking: class 300 RTJ blind flange
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "brida ciega de 6 pulgadas clase 300 RTJ",
+  "branchCode": "01",
+  "topK": 5,
+  "candidateTopK": 40
+}

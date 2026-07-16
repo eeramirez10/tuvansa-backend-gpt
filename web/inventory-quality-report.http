@@ -1,0 +1,28 @@
+@baseUrl = http://localhost:5500/api
+
+### Reporte global y por las siete sucursales
+GET {{baseUrl}}/gpt/analysis/inventory-quality/report?distributionTop=20
+
+### EAN con conflictos tecnicos en todas las sucursales
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=CRITICAL_CONFLICT&limit=20&offset=0
+
+### EAN que aparecen en mas de un registro de Proscai
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=MULTIPLE_RECORD_EAN&limit=20&offset=0
+
+### Conflictos de material que afectan a Mexico
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=MATERIAL_CONFLICT&branchCode=01&limit=20&offset=0
+
+### EAN duplicados dentro de Veracruz
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=DUPLICATE_EAN_IN_BRANCH&branchCode=03&limit=20&offset=0
+
+### Registros sin EAN en Monterrey
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=WITHOUT_EAN&branchCode=02&limit=20&offset=0
+
+### Registros sin descripcion larga en Mexico
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=WITHOUT_LONG_DESCRIPTION&branchCode=01&limit=20&offset=0
+
+### Registros sin material en Queretaro
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=MISSING_MATERIAL&branchCode=05&limit=20&offset=0
+
+### Conflictos de diametro en todas las sucursales
+GET {{baseUrl}}/gpt/analysis/inventory-quality/issues?metric=DIAMETER_CONFLICT&limit=20&offset=0

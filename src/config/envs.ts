@@ -15,5 +15,20 @@ export const envs = {
   // REDIS_USER : get('REDIS_USER').required().asString(),
   // REDIS_PASSWORD : get('REDIS_PASSWORD').required().asString(),
   PINECONE_API_KEY: get('PINECONE_API_KEY').required().asString(),
-  VOYAGEAI_API_KEY: get('VOYAGEAI_API_KEY').required().asString()
+  VOYAGEAI_API_KEY: get('VOYAGEAI_API_KEY').required().asString(),
+  PINECONE_CATALOG_V2_INDEX: get('PINECONE_CATALOG_V2_INDEX')
+    .default('proscai-catalog-v2')
+    .asString(),
+  PINECONE_CATALOG_VARIANTS_NAMESPACE: get('PINECONE_CATALOG_VARIANTS_NAMESPACE')
+    .default('catalog-variants-v1')
+    .asString(),
+  VOYAGE_CATALOG_V2_MODEL: get('VOYAGE_CATALOG_V2_MODEL')
+    .default('voyage-4-large')
+    .asString(),
+  VOYAGE_CATALOG_V2_DIMENSION: get('VOYAGE_CATALOG_V2_DIMENSION')
+    .default('1024')
+    .asIntPositive(),
+  VOYAGE_CATALOG_V2_MIN_REQUEST_INTERVAL_MS: get('VOYAGE_CATALOG_V2_MIN_REQUEST_INTERVAL_MS')
+    .default('25000')
+    .asIntPositive(),
 }

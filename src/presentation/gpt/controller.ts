@@ -21,6 +21,13 @@ import { AnalyzeResult, buildAnalyzeResult } from "../../infraestructure/helpers
 import { MatchAllProductsUseCase } from "../../application/use-cases/match-all-products.use-case";
 import { ProscaiProductAnalysisService } from "../../infraestructure/services/proscai-product-analysis.service";
 import { PrismaProductCatalogService } from "../../infraestructure/services/prisma-product-catalog.service";
+import {
+  INVENTORY_BRANCHES,
+  INVENTORY_ISSUE_METRICS,
+  InventoryBranchCode,
+  InventoryIssueMetric,
+  ProscaiInventoryQualityReportService,
+} from "../../infraestructure/services/proscai-inventory-quality-report.service";
 
 
 /**
@@ -49,7 +56,8 @@ export class GptController {
     private readonly voyage: VoyageAIService,
     private readonly pinecone: PineconeService,
     private readonly productAnalysisService: ProscaiProductAnalysisService,
-    private readonly prismaProductCatalogService: PrismaProductCatalogService
+    private readonly prismaProductCatalogService: PrismaProductCatalogService,
+    private readonly inventoryQualityReportService: ProscaiInventoryQualityReportService,
   ) { }
 
   private readPositiveInt(value: unknown, fallback: number, max = 500): number {
@@ -362,6 +370,57 @@ export class GptController {
     } catch (error) {
       console.error('Error analyzing products overview:', error);
       res.status(500).json({ error: 'Error al analizar el resumen de productos.' });
+    }
+  }
+
+  productsInventoryQualityReport = async (req: Request, res: Response) => {
+    try {
+      const distributionTop = this.readPositiveInt(req.query.distributionTop, 20, 50);
+      const result = await this.inventoryQualityReportService.getReport(distributionTop);
+      res.json(result);
+    } catch (error) {
+      console.error('Error generating inventory quality report:', error);
+      res.status(500).json({ error: 'Error al generar el reporte de calidad del inventario.' });
+    }
+  }
+
+  productsInventoryQualityIssues = async (req: Request, res: Response) => {
+    const metric = typeof req.query.metric === 'string'
+      ? req.query.metric.trim().toUpperCase()
+      : '';
+    const branchCode = typeof req.query.branchCode === 'string'
+      ? req.query.branchCode.trim()
+      : undefined;
+
+    if (!INVENTORY_ISSUE_METRICS.includes(metric as InventoryIssueMetric)) {
+      res.status(400).json({
+        error: 'Metrica no valida.',
+        supportedMetrics: INVENTORY_ISSUE_METRICS,
+      });
+      return;
+    }
+
+    if (branchCode && !Object.prototype.hasOwnProperty.call(INVENTORY_BRANCHES, branchCode)) {
+      res.status(400).json({
+        error: 'Codigo de sucursal no valido.',
+        supportedBranches: INVENTORY_BRANCHES,
+      });
+      return;
+    }
+
+    try {
+      const limit = this.readPositiveInt(req.query.limit, 50, 100);
+      const offset = this.readPositiveInt(req.query.offset, 0, 100000);
+      const result = await this.inventoryQualityReportService.getIssues({
+        metric: metric as InventoryIssueMetric,
+        branchCode: branchCode as InventoryBranchCode | undefined,
+        limit,
+        offset,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error('Error listing inventory quality issues:', error);
+      res.status(500).json({ error: 'Error al listar las incidencias del inventario.' });
     }
   }
 

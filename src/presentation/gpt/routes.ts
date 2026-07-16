@@ -11,6 +11,7 @@ import { PineconeService } from "../../infraestructure/services/pinecone-service
 import { upload } from "../../config/multer-config";
 import { ProscaiProductAnalysisService } from "../../infraestructure/services/proscai-product-analysis.service";
 import { PrismaProductCatalogService } from "../../infraestructure/services/prisma-product-catalog.service";
+import { ProscaiInventoryQualityReportService } from "../../infraestructure/services/proscai-inventory-quality-report.service";
 
 
 
@@ -31,12 +32,15 @@ export class GptRoutes {
     const pinecone = new PineconeService();
     const productAnalysisService = new ProscaiProductAnalysisService();
     const prismaProductCatalogService = new PrismaProductCatalogService();
+    const inventoryQualityReportService = new ProscaiInventoryQualityReportService();
 
     const {
       upsertProducts,
       matchProduct,
       transformQuote,
       productsOverview,
+      productsInventoryQualityReport,
+      productsInventoryQualityIssues,
       productsFamilyDistribution,
       productsPrefixPatterns,
       productsFirstWordAnalysis,
@@ -63,7 +67,8 @@ export class GptRoutes {
         voyage,
         pinecone,
         productAnalysisService,
-        prismaProductCatalogService
+        prismaProductCatalogService,
+        inventoryQualityReportService,
       )
 
 
@@ -73,6 +78,8 @@ export class GptRoutes {
     router.post('/match-product', matchProduct)
     router.post('/extract-items-quote', upload.single('quote'), transformQuote)
     router.get('/analysis/products/overview', productsOverview)
+    router.get('/analysis/inventory-quality/report', productsInventoryQualityReport)
+    router.get('/analysis/inventory-quality/issues', productsInventoryQualityIssues)
     router.get('/analysis/products/family-distribution', productsFamilyDistribution)
     router.get('/analysis/products/prefix-patterns', productsPrefixPatterns)
     router.get('/analysis/products/first-word-analysis', productsFirstWordAnalysis)
