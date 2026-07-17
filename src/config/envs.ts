@@ -31,4 +31,11 @@ export const envs = {
   VOYAGE_CATALOG_V2_MIN_REQUEST_INTERVAL_MS: get('VOYAGE_CATALOG_V2_MIN_REQUEST_INTERVAL_MS')
     .default('25000')
     .asIntPositive(),
+  ERP_PRODUCTS_BASE_URL: get('ERP_PRODUCTS_BASE_URL')
+    .default('http://localhost:3500/api/erp/products')
+    .asString(),
+  ERP_PRODUCTS_TIMEOUT_MS: get('ERP_PRODUCTS_TIMEOUT_MS')
+    .default('5000')
+    .asIntPositive(),
+  ERP_PRODUCTS_API_KEY: get('ERP_PRODUCTS_API_KEY').asString(),
 }

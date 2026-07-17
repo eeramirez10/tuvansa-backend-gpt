@@ -11,6 +11,28 @@ Content-Type: application/json
   "candidateTopK": 40
 }
 
+### Pure embedding search: exact Pinecone order without technical reranking
+POST {{baseUrl}}/api/vector-catalog/search/semantic
+Content-Type: application/json
+
+{
+  "query": "SEAMLESS PIPE A312 TP316/316L BE 6 IN S-10S",
+  "branchCode": "01",
+  "topK": 10,
+  "candidateTopK": 30
+}
+
+### Search with real-time availability and costs from Proscai
+POST {{baseUrl}}/api/vector-catalog/search
+Content-Type: application/json
+
+{
+  "query": "tuberia de acero al carbon con costura UL FM cedula 10 de 2 1/2 pulgadas",
+  "branchCode": "04",
+  "topK": 5,
+  "candidateTopK": 40
+}
+
 ### Semantic search: exact technical filters
 POST {{baseUrl}}/api/vector-catalog/search
 Content-Type: application/json
@@ -101,3 +123,28 @@ Content-Type: application/json
   "topK": 5,
   "candidateTopK": 40
 }
+
+### List search evaluation cases
+GET {{baseUrl}}/api/vector-catalog/evaluation/cases
+
+### Run the complete search evaluation matrix in background
+POST {{baseUrl}}/api/vector-catalog/evaluation/run
+Content-Type: application/json
+
+{}
+
+### Run only selected evaluation cases
+POST {{baseUrl}}/api/vector-catalog/evaluation/run
+Content-Type: application/json
+
+{
+  "caseIds": [
+    "pipe-carbon-steel-4-sch10",
+    "fitting-copper-elbow-threaded",
+    "valve-ball-2-class150-flanged",
+    "flange-weld-neck-4-class150-rf"
+  ]
+}
+
+### Check search evaluation progress and report
+GET {{baseUrl}}/api/vector-catalog/evaluation/status

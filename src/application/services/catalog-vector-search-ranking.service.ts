@@ -78,6 +78,34 @@ export class CatalogVectorSearchRankingService {
       .sort((first, second) => second.finalSimilarity - first.finalSimilarity);
   }
 
+  public static rankSemantic(
+    matches: CatalogVectorSearchCandidate[],
+  ): RankedCatalogVectorMatch[] {
+    const seenEans = new Set<string>();
+    const rankedMatches: RankedCatalogVectorMatch[] = [];
+
+    for (const match of matches) {
+      const metadata = match.metadata ?? {};
+      const ean = this.readValue(metadata.ean) ?? match.id;
+      if (!ean || seenEans.has(ean)) continue;
+
+      seenEans.add(ean);
+      const semanticSimilarity = this.normalizeSemanticScore(match.score);
+      rankedMatches.push({
+        id: match.id,
+        ean,
+        metadata,
+        semanticSimilarity,
+        finalSimilarity: semanticSimilarity,
+        confidence: this.resolveConfidence(semanticSimilarity),
+        rankingStrategy: "SEMANTIC_ONLY",
+        reasons: ["semantic similarity"],
+      });
+    }
+
+    return rankedMatches;
+  }
+
   private static readValue(value: unknown): string | undefined {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
   }

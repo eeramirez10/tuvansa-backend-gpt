@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { CatalogIndexJobService } from "../../application/services/catalog-index-job.service";
+import { CatalogSearchEvaluationJobService } from "../../application/services/catalog-search-evaluation-job.service";
 import { CatalogVectorDocumentMapper } from "../../application/mappers/catalog-vector-document.mapper";
 import { SearchProscaiCatalogUseCase } from "../../application/use-cases/search-proscai-catalog.use-case";
 import {
@@ -20,6 +21,7 @@ export class VectorCatalogController {
     private readonly embeddingModel: string,
     private readonly catalogIndexJobService: CatalogIndexJobService,
     private readonly searchCatalogUseCase: SearchProscaiCatalogUseCase,
+    private readonly evaluationJobService: CatalogSearchEvaluationJobService,
   ) {}
 
   public preview = async (req: Request, res: Response): Promise<Response> => {
@@ -164,6 +166,7 @@ export class VectorCatalogController {
         limit: topK,
         candidateTopK: this.readCandidateTopK(req.body?.candidateTopK, topK),
         filters,
+        includeAvailability: true,
       });
 
       return res.status(200).json({
@@ -173,29 +176,144 @@ export class VectorCatalogController {
         topK,
         filters,
         parsedQuery: searchResult.parsedQuery,
+        availabilityStatus: searchResult.availabilityStatus,
+        availabilityError: searchResult.availabilityError,
         itemsCount: searchResult.matches.length,
-        items: searchResult.matches.map((match) => ({
-          ean: match.ean,
-          productId: match.id,
-          description: match.metadata.normalizedDescription ?? null,
-          originalDescription: match.metadata.originalDescription ?? null,
-          semanticSimilarity: this.roundSimilarity(match.semanticSimilarity),
-          semanticSimilarityPercent: this.toPercent(match.semanticSimilarity),
-          finalSimilarity: this.roundSimilarity(match.finalSimilarity),
-          finalSimilarityPercent: this.toPercent(match.finalSimilarity),
-          similarity: this.roundSimilarity(match.finalSimilarity),
-          similarityPercent: this.toPercent(match.finalSimilarity),
-          confidence: match.confidence,
-          rankingStrategy: match.rankingStrategy,
-          reasons: match.reasons,
-          icod: match.metadata.canonicalIcod ?? match.metadata.icod ?? null,
-          metadata: match.metadata,
-        })),
+        items: searchResult.matches.map((match) => {
+          const availability = searchResult.availabilityByEan.get(match.ean) ?? null;
+          const requestedBranch = branchCode
+            ? availability?.branches.find((branch) => branch.branchCode === branchCode) ?? null
+            : null;
+
+          return {
+            ean: match.ean,
+            productId: match.id,
+            description: match.metadata.normalizedDescription ?? null,
+            originalDescription: match.metadata.originalDescription ?? null,
+            semanticSimilarity: this.roundSimilarity(match.semanticSimilarity),
+            semanticSimilarityPercent: this.toPercent(match.semanticSimilarity),
+            finalSimilarity: this.roundSimilarity(match.finalSimilarity),
+            finalSimilarityPercent: this.toPercent(match.finalSimilarity),
+            similarity: this.roundSimilarity(match.finalSimilarity),
+            similarityPercent: this.toPercent(match.finalSimilarity),
+            confidence: match.confidence,
+            rankingStrategy: match.rankingStrategy,
+            reasons: match.reasons,
+            icod: match.metadata.canonicalIcod ?? match.metadata.icod ?? null,
+            availabilityStatus: searchResult.availabilityStatus === "resolved"
+              ? availability ? "resolved" : "not_found"
+              : searchResult.availabilityStatus,
+            availability: availability
+              ? { ...availability, requestedBranch }
+              : null,
+            metadata: match.metadata,
+          };
+        }),
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error al buscar en el catalogo vectorial.";
       return res.status(500).json({ error: message });
     }
+  };
+
+  public searchSemantic = async (req: Request, res: Response): Promise<Response> => {
+    const query = this.readSearchQuery(req.body?.query);
+
+    if (!query) {
+      return res.status(400).json({ error: "query es obligatorio." });
+    }
+
+    try {
+      const topK = this.readSearchTopK(req.body?.topK);
+      const filters = this.readSearchFilters(req.body?.filters);
+      const branchCode = this.readBranchCode(req.body?.branchCode);
+      const searchResult = await this.searchCatalogUseCase.executeSemantic({
+        query,
+        limit: topK,
+        candidateTopK: this.readCandidateTopK(req.body?.candidateTopK, topK),
+        filters,
+        includeAvailability: true,
+      });
+
+      return res.status(200).json({
+        source: "proscai-catalog-v2-semantic",
+        index: "proscai-catalog-v2",
+        query,
+        branchCode,
+        topK,
+        filters,
+        rankingStrategy: "SEMANTIC_ONLY",
+        availabilityStatus: searchResult.availabilityStatus,
+        availabilityError: searchResult.availabilityError,
+        itemsCount: searchResult.matches.length,
+        items: searchResult.matches.map((match) => {
+          const availability = searchResult.availabilityByEan.get(match.ean) ?? null;
+          const requestedBranch = branchCode
+            ? availability?.branches.find((branch) => branch.branchCode === branchCode) ?? null
+            : null;
+
+          return {
+            ean: match.ean,
+            productId: match.id,
+            description: match.metadata.normalizedDescription ?? null,
+            originalDescription: match.metadata.originalDescription ?? null,
+            semanticSimilarity: this.roundSimilarity(match.semanticSimilarity),
+            semanticSimilarityPercent: this.toPercent(match.semanticSimilarity),
+            finalSimilarity: this.roundSimilarity(match.semanticSimilarity),
+            finalSimilarityPercent: this.toPercent(match.semanticSimilarity),
+            similarity: this.roundSimilarity(match.semanticSimilarity),
+            similarityPercent: this.toPercent(match.semanticSimilarity),
+            confidence: match.confidence,
+            rankingStrategy: match.rankingStrategy,
+            reasons: match.reasons,
+            icod: match.metadata.canonicalIcod ?? match.metadata.icod ?? null,
+            availabilityStatus: searchResult.availabilityStatus === "resolved"
+              ? availability ? "resolved" : "not_found"
+              : searchResult.availabilityStatus,
+            availability: availability
+              ? { ...availability, requestedBranch }
+              : null,
+            metadata: match.metadata,
+          };
+        }),
+      });
+    } catch (error) {
+      const message = error instanceof Error
+        ? error.message
+        : "Error al buscar por similitud semantica pura.";
+      return res.status(500).json({ error: message });
+    }
+  };
+
+  public evaluationCases = (_req: Request, res: Response): Response => {
+    const cases = this.evaluationJobService.listCases();
+
+    return res.status(200).json({
+      count: cases.length,
+      items: cases,
+    });
+  };
+
+  public startEvaluation = (req: Request, res: Response): Response => {
+    try {
+      const job = this.evaluationJobService.start({
+        caseIds: this.readEvaluationCaseIds(req.body?.caseIds),
+      });
+
+      return res.status(202).json({
+        message: "Evaluacion del buscador iniciada.",
+        job,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al iniciar la evaluacion.";
+      return res.status(400).json({ error: message });
+    }
+  };
+
+  public evaluationStatus = (_req: Request, res: Response): Response => {
+    return res.status(200).json({
+      job: this.evaluationJobService.getStatus(),
+    });
   };
 
   private readLimit(value: unknown): number {
@@ -206,6 +324,15 @@ export class VectorCatalogController {
     }
 
     return Math.min(Math.floor(parsed), 50);
+  }
+
+  private readEvaluationCaseIds(value: unknown): string[] | undefined {
+    if (value === undefined || value === null) return undefined;
+    if (!Array.isArray(value) || value.some((id) => typeof id !== "string")) {
+      throw new Error("caseIds debe ser un arreglo de identificadores.");
+    }
+
+    return value.map((id) => id.trim()).filter(Boolean);
   }
 
   private readCursor(afterEan: unknown, afterIcod: unknown) {
@@ -352,8 +479,8 @@ export class VectorCatalogController {
     if (typeof value !== "string" || !value.trim()) return null;
 
     const branchCode = value.trim();
-    if (!/^\d{2}$/.test(branchCode)) {
-      throw new Error("branchCode debe tener dos digitos.");
+    if (!/^(01|02|03|04|05|06|07)$/.test(branchCode)) {
+      throw new Error("branchCode debe estar entre 01 y 07.");
     }
 
     return branchCode;
