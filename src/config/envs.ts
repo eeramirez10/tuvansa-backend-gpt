@@ -22,6 +22,10 @@ export const envs = {
   PINECONE_CATALOG_VARIANTS_NAMESPACE: get('PINECONE_CATALOG_VARIANTS_NAMESPACE')
     .default('catalog-variants-v1')
     .asString(),
+  PINECONE_LOCAL_PRODUCTS_NAMESPACE: get('PINECONE_LOCAL_PRODUCTS_NAMESPACE')
+    .default('local-products-v1')
+    .asString(),
+  LOCAL_PRODUCTS_INTERNAL_API_KEY: get('LOCAL_PRODUCTS_INTERNAL_API_KEY').asString(),
   VOYAGE_CATALOG_V2_MODEL: get('VOYAGE_CATALOG_V2_MODEL')
     .default('voyage-4-large')
     .asString(),
@@ -29,7 +33,7 @@ export const envs = {
     .default('1024')
     .asIntPositive(),
   VOYAGE_CATALOG_V2_MIN_REQUEST_INTERVAL_MS: get('VOYAGE_CATALOG_V2_MIN_REQUEST_INTERVAL_MS')
-    .default('25000')
+    .default('100')
     .asIntPositive(),
   ERP_PRODUCTS_BASE_URL: get('ERP_PRODUCTS_BASE_URL')
     .default('http://localhost:3500/api/erp/products')
