@@ -38,6 +38,22 @@ export class PineconeCatalogV2Service {
     );
   }
 
+  public async upsertRecords(vectors: Array<{
+    id: string;
+    values: number[];
+    metadata: Record<string, unknown>;
+  }>): Promise<void> {
+    if (vectors.length === 0) return;
+
+    await this.index.upsert(
+      vectors.map((vector) => ({
+        id: vector.id,
+        values: vector.values,
+        metadata: vector.metadata as RecordMetadata,
+      })),
+    );
+  }
+
   public async findMetadata(ids: string[]): Promise<Map<string, RecordMetadata>> {
     if (ids.length === 0) return new Map();
 
