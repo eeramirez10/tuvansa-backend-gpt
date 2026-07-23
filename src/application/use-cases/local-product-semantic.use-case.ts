@@ -17,8 +17,8 @@ export class LocalProductSemanticUseCase {
 
   public async search(description: string, unit: string, topK: number): Promise<LocalProductVectorMatch[]> {
     const cacheKey = JSON.stringify([
-      description.trim().replace(/\s+/g, " ").toUpperCase(),
-      unit.trim().toUpperCase(),
+      LocalProductVectorEntity.canonicalize(description),
+      LocalProductVectorEntity.canonicalize(unit),
       topK,
     ]);
     const cached = this.searchCache.get(cacheKey);

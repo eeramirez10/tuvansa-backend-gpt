@@ -20,8 +20,8 @@ export class LocalProductVectorEntity {
   public static embeddingText(description: string, unit: string): string {
     return [
       "Producto local pendiente de alta en ERP",
-      `Descripcion: ${this.normalize(description)}`,
-      `Unidad: ${this.normalize(unit)}`,
+      `Descripcion: ${this.canonicalize(description)}`,
+      `Unidad: ${this.canonicalize(unit)}`,
     ].join(". ");
   }
 
@@ -35,13 +35,19 @@ export class LocalProductVectorEntity {
     return {
       source: "LOCAL_TEMP",
       productId: input.productId.trim(),
-      description: this.normalize(input.description),
-      unit: this.normalize(input.unit),
+      description: this.normalizeDisplay(input.description),
+      unit: this.normalizeDisplay(input.unit),
       ...(branchId ? { branchId } : {}),
     };
   }
 
-  private static normalize(value: string): string {
+  public static canonicalize(value: string): string {
+    return this.normalizeDisplay(value)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
+
+  private static normalizeDisplay(value: string): string {
     return value.trim().replace(/\s+/g, " ").toUpperCase();
   }
 }
